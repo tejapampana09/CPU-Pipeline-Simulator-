@@ -23,7 +23,7 @@ function CleanMarkdown({content}) {
           if (part.startsWith('`') && part.endsWith('`')) {
             return <code key={pIdx} className="code-chip">{part.slice(1, -1)}</code>;
           }
-          if (part.startsWith("'") && part.endsWith("'") && /\b(LI|ADD|SUB|AND|OR|LOAD|STORE|R[0-7])\b/i.test(part)) {
+          if (part.startsWith("'") && part.endsWith("'") && /\b(LI|ADD|SUB|AND|OR|LOAD|STORE|R[0-7]|AX|BX|CX|DX)\b/i.test(part)) {
             return <code key={pIdx} className="code-chip">{part.slice(1, -1)}</code>;
           }
           return part;
@@ -46,49 +46,54 @@ function CleanMarkdown({content}) {
 
 export default function TeammatePanel({state, onLoad, disabled}) {
   const [aiConfig, setAiConfig] = useState({configured: false, model: 'gemini-2.5-flash'});
-  const [activeTab, setActiveTab] = useState('ai');
+  
+  // Independent mode states for each bot!
+  const [bot1Mode, setBot1Mode] = useState('ai'); // 'ai' | 'offline'
+  const [bot2Mode, setBot2Mode] = useState('ai'); // 'ai' | 'offline'
   const [autoReviewSession, setAutoReviewSession] = useState(null);
   
-  // AI Bot state
+  // Bot 1 states (AI & Offline)
   const [aiPrompt, setAiPrompt] = useState('Write a program demonstrating a RAW hazard with LOAD and ADD, then store the result at address 25.');
   const [aiProposal, setAiProposal] = useState(null);
-  const [aiExplanation, setAiExplanation] = useState(null);
-
-  // Offline Bot state
   const [operation, setOp] = useState('ADD');
   const [a, setA] = useState(10);
   const [b, setB] = useState(20);
   const [address, setAddress] = useState(30);
   const [proposal, setProposal] = useState(null);
+
+  // Bot 2 states (AI & Offline)
+  const [aiExplanation, setAiExplanation] = useState(null);
   const [review, setReview] = useState(null);
 
-  // General UI state
+  // General UI states
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  // Fetch AI status on mount
+  // Fetch AI configuration status on mount
   useEffect(() => {
     api('teammates/status')
       .then(res => {
         setAiConfig(res);
         if (!res.configured) {
-          setActiveTab('offline');
+          setBot1Mode('offline');
+          setBot2Mode('offline');
         }
       })
       .catch(() => {
         setAiConfig({configured: false});
-        setActiveTab('offline');
+        setBot1Mode('offline');
+        setBot2Mode('offline');
       });
   }, []);
 
-  // Reset auto-review session when cycle is 0 (reset/init)
+  // Reset auto-review session tracker on cycle 0 (reset/init)
   useEffect(() => {
     if (state?.cycle === 0) {
       setAutoReviewSession(null);
     }
   }, [state?.cycle]);
 
-  // AUTOMATIC REVIEW: Triggers automatically as soon as simulation completes!
+  // AUTOMATIC REVIEW for Bot 2: Runs as soon as simulation completes in whatever mode Bot 2 is set to!
   useEffect(() => {
     if (
       state?.status === 'completed' &&
@@ -97,15 +102,15 @@ export default function TeammatePanel({state, onLoad, disabled}) {
       !busy
     ) {
       setAutoReviewSession(state.sessionId);
-      if (activeTab === 'ai' && aiConfig.configured) {
+      if (bot2Mode === 'ai' && aiConfig.configured) {
         handleAiExplain(state.sessionId);
       } else {
         handleOfflineCall('review', state.sessionId);
       }
     }
-  }, [state?.status, state?.sessionId, activeTab, aiConfig.configured, autoReviewSession, busy]);
+  }, [state?.status, state?.sessionId, bot2Mode, aiConfig.configured, autoReviewSession, busy]);
 
-  // AI Assembly Generator
+  // Bot 1: AI Assembly Generator
   async function handleAiGenerate(promptToUse) {
     const p = promptToUse || aiPrompt;
     if (!p.trim()) return;
@@ -125,7 +130,7 @@ export default function TeammatePanel({state, onLoad, disabled}) {
     }
   }
 
-  // AI Pipeline Explainer & Optimizer
+  // Bot 2: AI Pipeline Explainer & Optimizer
   async function handleAiExplain(explicitSessionId) {
     const sid = explicitSessionId || state?.sessionId;
     if (!sid) return;
@@ -171,64 +176,75 @@ export default function TeammatePanel({state, onLoad, disabled}) {
 
   return (
     <section className="panel teammates">
-      <div className="section-heading">
-        <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
-          <h2>Your bot teammates</h2>
-          <div className="tabs" style={{margin: 0}}>
-            <button
-              className={activeTab === 'ai' ? 'selected' : ''}
-              onClick={() => setActiveTab('ai')}
-              style={{padding: '5px 10px', fontSize: '11px'}}
-            >
-              ✨ AI Teammate Mode {aiConfig.configured ? <span style={{color: '#18775e'}}>● Active</span> : ''}
-            </button>
-            <button
-              className={activeTab === 'offline' ? 'selected' : ''}
-              onClick={() => setActiveTab('offline')}
-              style={{padding: '5px 10px', fontSize: '11px'}}
-            >
-              ⚙️ Offline (Rule-based)
-            </button>
+      <div className="section-heading" style={{marginBottom: '14px'}}>
+        <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%'}}>
+          <div>
+            <h2>Dual Virtual Bot Teammates</h2>
+            <p className="muted" style={{margin: '2px 0 0', fontSize: '11px'}}>
+              Two distinct, independent AI/offline software teammates designed for the 7-member COA project.
+            </p>
           </div>
-        </div>
-        <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-          <span style={{fontSize: '11px', color: '#16765d', background: '#eaf6f0', padding: '3px 8px', borderRadius: '12px', border: '1px solid #cce8dc', fontWeight: 600}}>
-            ⚡ Auto-Review Active
-          </span>
-          <span className={`badge ${activeTab === 'ai' && aiConfig.configured ? 'ai-active' : ''}`}>
-            {activeTab === 'ai'
-              ? aiConfig.configured
-                ? `Gemini AI (${aiConfig.model})`
-                : 'AI Key Not Found'
-              : 'Deterministic · Offline'}
-          </span>
+          <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+            <span style={{fontSize: '10.5px', color: '#10b981', background: '#062920', border: '1px solid #0f5132', padding: '3px 8px', borderRadius: '12px', fontWeight: 700}}>
+              ⚡ Auto-Review Active
+            </span>
+            <span className={`badge ${aiConfig.configured ? 'ai-active' : ''}`}>
+              {aiConfig.configured ? `Gemini AI (${aiConfig.model})` : 'Offline Mode'}
+            </span>
+          </div>
         </div>
       </div>
 
-      {activeTab === 'ai' && !aiConfig.configured && (
-        <div className="offline-tip">
-          <b>💡 How to activate Google Gemini AI:</b>
-          <p style={{margin: '4px 0 0'}}>
-            Add <code>GEMINI_API_KEY=your_key</code> in <code>coa-pipeline-simulator/backend/.env</code> and restart the server.
-          </p>
-        </div>
-      )}
+      {/* TWO SEPARATED DEDICATED BOT CARDS */}
+      <div className="bot-grid">
+        {/* ======================================================== */}
+        {/* BOT 1: ASSEMBLY ARCHITECT / ASSISTANT                     */}
+        {/* ======================================================== */}
+        <article className="bot-card bot-1">
+          <div className="bot-card-header">
+            <div className="bot-card-title-group">
+              <span className="avatar">⚡</span>
+              <div>
+                <h3>Bot 1: Assembly Assistant</h3>
+                <span className="bot-tag-sub">Program Author & Code Transpiler</span>
+              </div>
+            </div>
 
-      {activeTab === 'ai' ? (
-        /* AI TEAMMATE MODE */
-        <div className="bot-grid">
-          {/* Bot 1: AI Assembly Architect */}
-          <article>
-            <h3><span className="avatar">⚡</span> AI Assembly Architect</h3>
-            <p>Describe what you want to compute, and the AI will author valid assembly for our 5-stage CPU.</p>
+            {/* Independent Mode Switch for Bot 1 */}
+            <div className="bot-mode-pills">
+              <button
+                type="button"
+                className={`bot-mode-btn ${bot1Mode === 'ai' ? 'active ai' : ''}`}
+                onClick={() => setBot1Mode('ai')}
+                disabled={!aiConfig.configured}
+                title={!aiConfig.configured ? 'Add GEMINI_API_KEY in .env to enable AI' : 'Use Gemini AI Code Generator'}
+              >
+                ✨ Gemini AI
+              </button>
+              <button
+                type="button"
+                className={`bot-mode-btn ${bot1Mode === 'offline' ? 'active offline' : ''}`}
+                onClick={() => setBot1Mode('offline')}
+                title="Use Deterministic Arithmetic Templates"
+              >
+                ⚙️ Rule-based
+              </button>
+            </div>
+          </div>
 
-            <div style={{margin: '12px 0'}}>
-              <div style={{display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px'}}>
+          {/* BOT 1 CONTENT */}
+          {bot1Mode === 'ai' ? (
+            <div>
+              <p style={{fontSize: '11px', color: '#94a3b8', margin: '4px 0 10px'}}>
+                Describe any logic in plain English, paste 8086 code, or pick a preset. Gemini AI authors valid 5-stage RISC assembly:
+              </p>
+
+              <div style={{display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '8px'}}>
                 {QUICK_PROMPTS.map((qp, idx) => (
                   <button
                     key={idx}
                     type="button"
-                    style={{padding: '4px 8px', fontSize: '10px', borderRadius: '12px'}}
+                    style={{padding: '3px 7px', fontSize: '9.5px', borderRadius: '10px'}}
                     disabled={busy}
                     onClick={() => {
                       setAiPrompt(qp.text);
@@ -239,294 +255,349 @@ export default function TeammatePanel({state, onLoad, disabled}) {
                   </button>
                 ))}
               </div>
+
               <textarea
-                style={{height: '75px', padding: '10px', fontSize: '11px', background: '#1c2833'}}
+                style={{height: '70px', padding: '8px', fontSize: '11px', width: '100%', marginBottom: '8px'}}
                 value={aiPrompt}
                 onChange={e => setAiPrompt(e.target.value)}
-                placeholder="e.g. Write a program to calculate 5 * 3 using repeated additions..."
+                placeholder="e.g. Write a program to add 15 and 25, then store in address 40..."
               />
-            </div>
 
-            <button
-              className="primary"
-              disabled={busy || !aiPrompt.trim()}
-              onClick={() => handleAiGenerate()}
-            >
-              {busy ? 'Consulting Gemini AI...' : 'Generate with AI ⚡'}
-            </button>
+              <button
+                className="primary"
+                disabled={busy || !aiPrompt.trim()}
+                onClick={() => handleAiGenerate()}
+              >
+                {busy ? 'Consulting Gemini AI...' : 'Generate with AI ⚡'}
+              </button>
 
-            {aiProposal && (
-              <div style={{marginTop: '14px'}}>
-                <pre>{aiProposal.source}</pre>
-                <div style={{fontSize: '12px', margin: '8px 0'}}>
-                  <strong>Explanation:</strong>
-                  <div style={{marginTop: '3px'}}>
-                    <CleanMarkdown content={aiProposal.explanation} />
+              {aiProposal && (
+                <div style={{marginTop: '12px', background: '#05080e', border: '1px solid #162030', padding: '10px', borderRadius: '6px'}}>
+                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px'}}>
+                    <span style={{fontSize: '10px', color: '#38bdf8', fontWeight: 800}}>GENERATED ASSEMBLY CODE</span>
+                    <button
+                      disabled={disabled}
+                      style={{fontSize: '10px', padding: '2px 8px'}}
+                      onClick={() => onLoad(aiProposal.source)}
+                    >
+                      Load into Editor ↗
+                    </button>
                   </div>
-                </div>
-                {aiProposal.hazardsInsight && (
-                  <div style={{color: '#985800', background: '#fff9ed', padding: '10px 12px', borderRadius: '6px', border: '1px solid #fae4b6', fontSize: '11.5px', marginTop: '8px'}}>
-                    <strong>Pipeline Hazard Analysis:</strong>
-                    <div style={{marginTop: '4px'}}>
-                      <CleanMarkdown content={aiProposal.hazardsInsight} />
-                    </div>
-                  </div>
-                )}
-                <button
-                  disabled={disabled}
-                  style={{marginTop: '10px'}}
-                  onClick={() => onLoad(aiProposal.source)}
-                >
-                  Use in editor ↗
-                </button>
-              </div>
-            )}
-          </article>
-
-          {/* Bot 2: AI Pipeline Explainer & Optimizer */}
-          <article>
-            <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
-              <h3><span className="avatar reviewer">🧠</span> AI Pipeline Coach & Optimizer</h3>
-              {state?.status === 'completed' && (
-                <span style={{fontSize: '10px', color: '#16765d', background: '#eaf6f0', padding: '2px 7px', borderRadius: '10px', fontWeight: 600}}>
-                  ✓ Auto-Analyzed
-                </span>
-              )}
-            </div>
-            <p>Automatically explains execution results, reasons for stalls, and gives optimization code.</p>
-
-            <button
-              className="primary"
-              disabled={!state || busy || disabled}
-              onClick={() => handleAiExplain()}
-              style={{marginTop: '10px'}}
-            >
-              {busy ? 'Analyzing execution trace...' : 'Re-Analyze with AI 🧠'}
-            </button>
-
-            {busy && (
-              <div style={{marginTop: '12px', background: '#eaf5ef', padding: '10px', borderRadius: '6px', color: '#18775e', fontSize: '11.5px'}}>
-                ⚡ AI Coach is analyzing the pipeline trace automatically...
-              </div>
-            )}
-
-            {aiExplanation && (
-              <div className="ai-coach-wrap">
-                {/* Summary Header Card */}
-                <div className="ai-summary-card">
-                  <div className="ai-summary-header">
-                    <div className="ai-summary-title">
-                      <span>VERDICT:</span>
-                      <span className={`ai-pill ${aiExplanation.verdict === 'pass' ? 'pass' : 'fail'}`}>
-                        {aiExplanation.verdict?.toUpperCase() || 'EVALUATED'}
-                      </span>
-                    </div>
-                    {aiExplanation.stats && (
-                      <div className="ai-pills-row">
-                        <span className="ai-pill">{aiExplanation.stats.cycle} Cycles</span>
-                        <span className="ai-pill">{aiExplanation.stats.stalls} Stalls</span>
-                        <span className="ai-pill">CPI {aiExplanation.stats.cpi}</span>
+                  <pre style={{margin: '0 0 8px'}}>{aiProposal.source}</pre>
+                  {aiProposal.explanation && (
+                    <div style={{fontSize: '11px', color: '#cbd5e1', marginTop: '6px'}}>
+                      <strong style={{color: '#94a3b8'}}>Explanation:</strong>
+                      <div style={{marginTop: '2px'}}>
+                        <CleanMarkdown content={aiProposal.explanation} />
                       </div>
-                    )}
-                  </div>
-                  {aiExplanation.overview && (
-                    <p className="ai-overview-text">
-                      <CleanMarkdown content={aiExplanation.overview} />
-                    </p>
+                    </div>
                   )}
                 </div>
-
-                {/* Hazards & Stalls Section */}
-                {aiExplanation.hazards?.length > 0 && (
-                  <div className="ai-card-group">
-                    <div className="ai-group-header">
-                      <span className="ai-group-title">
-                        <span>⚠️</span>
-                        <span>Where did stalls happen?</span>
-                      </span>
-                      <span className="ai-badge-count">{aiExplanation.hazards.length} Stalls</span>
-                    </div>
-
-                    {aiExplanation.hazards.map((h, i) => {
-                      const title = h.title || `RAW Hazard #${i + 1}`;
-                      const reg = h.register || (h.explanation?.match(/R[0-7]/i)?.[0]?.toUpperCase());
-                      const cycles = h.cycles || 'Stall Cycles';
-                      const stalls = h.stalls || 2;
-
-                      return (
-                        <div key={i} className="hazard-item-card">
-                          <div className="hazard-item-top">
-                            <div className="hazard-tag">
-                              <span>🛑</span>
-                              <span>{title}</span>
-                            </div>
-                            <div className="hazard-subtags">
-                              {reg && <span className="subtag subtag-reg">Reg {reg}</span>}
-                              <span className="subtag subtag-cycle">{cycles} ({stalls} Stalls)</span>
-                            </div>
-                          </div>
-                          {(h.producer || h.consumer) && (
-                            <div className="hazard-flow">
-                              <span>{h.producer} (Producer)</span>
-                              <span className="arrow">➔</span>
-                              <span>{h.consumer} (Waiting in ID)</span>
-                            </div>
-                          )}
-                          <div className="hazard-desc">
-                            <CleanMarkdown content={h.explanation} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Optimization Tips Section */}
-                {aiExplanation.optimizationTips?.length > 0 && (
-                  <div className="ai-card-group">
-                    <div className="ai-group-header">
-                      <span className="ai-group-title">
-                        <span>💡</span>
-                        <span>Can we make this code faster?</span>
-                      </span>
-                      <span className="ai-badge-count">Advice</span>
-                    </div>
-
-                    {aiExplanation.optimizationSummary && (
-                      <div style={{background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '9px 12px', fontSize: '11.5px', color: '#334155', marginBottom: '8px'}}>
-                        <strong>Verdict:</strong> <CleanMarkdown content={aiExplanation.optimizationSummary} />
-                      </div>
-                    )}
-
-                    {aiExplanation.optimizationTips.map((tip, i) => (
-                      <div key={i} className="opt-item-card">
-                        <div className="opt-item-top">
-                          <div className="opt-tag">
-                            <span>💡</span>
-                            <span>{tip.title || `Tip #${i + 1}`}</span>
-                          </div>
-                          {tip.benefit && <span className="opt-benefit-pill">{tip.benefit}</span>}
-                        </div>
-                        <div className="opt-desc">
-                          <CleanMarkdown content={tip.advice || tip.explanation || tip} />
-                        </div>
-                      </div>
-                    ))}
-
-                    {/* AI-Optimized Code Box with 1-Click Load into Editor */}
-                    {aiExplanation.optimizedCode?.source && (
-                      <div className="opt-code-card">
-                        <div className="opt-code-header">
-                          <span className="opt-code-title">
-                            <span>⚡</span>
-                            <span>Optimized Assembly Code</span>
-                          </span>
-                          <span className="opt-code-badge">
-                            {aiExplanation.optimizedCode.savings || 'Reduced Stalls'}
-                          </span>
-                        </div>
-                        {aiExplanation.optimizedCode.explanation && (
-                          <p className="opt-code-desc">
-                            <CleanMarkdown content={aiExplanation.optimizedCode.explanation} />
-                          </p>
-                        )}
-                        <pre className="opt-code-pre">{aiExplanation.optimizedCode.source}</pre>
-                        <button
-                          className="primary"
-                          disabled={disabled}
-                          style={{fontSize: '11px', padding: '7px 12px'}}
-                          onClick={() => onLoad(aiExplanation.optimizedCode.source)}
-                        >
-                          Load Optimized Code into Editor ↗
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Data Forwarding Impact Card */}
-                {aiExplanation.forwarding && (
-                  <div className="forwarding-banner">
-                    <div className="forwarding-top">
-                      <div className="forwarding-title">
-                        <span>⚡</span>
-                        <span>Hardware Data Forwarding (Bypass)</span>
-                      </div>
-                      <span className="forwarding-pill">
-                        {aiExplanation.forwarding.speedup || '~1.5x Speedup'}
-                      </span>
-                    </div>
-                    {aiExplanation.forwarding.summary && (
-                      <div className="forwarding-summary">
-                        <CleanMarkdown content={aiExplanation.forwarding.summary} />
-                      </div>
-                    )}
-                    {aiExplanation.forwarding.benefits?.length > 0 && (
-                      <ul className="forwarding-list">
-                        {aiExplanation.forwarding.benefits.map((b, bi) => (
-                          <li key={bi}><CleanMarkdown content={b} /></li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
-
-                {/* Mismatches if any */}
-                {aiExplanation.mismatches?.length > 0 && (
-                  <div style={{color: '#c0392b', marginTop: '8px', background: '#fff0ee', padding: '10px', borderRadius: '6px', border: '1px solid #efc5bf', fontSize: '11px'}}>
-                    <strong>Mismatches:</strong>
-                    {aiExplanation.mismatches.map(x => <p key={x} style={{margin: '2px 0'}}>{x}</p>)}
-                  </div>
-                )}
-              </div>
-            )}
-          </article>
-        </div>
-      ) : (
-        /* OFFLINE DETERMINISTIC MODE */
-        <div className="bot-grid">
-          <article>
-            <h3><span className="avatar">A</span> Assembly Assistant (Offline)</h3>
-            <p>Build a validated arithmetic program using fixed templates.</p>
-            <div className="bot-inputs">
-              <label>Operation
-                <select value={operation} onChange={e => setOp(e.target.value)}>
-                  {['ADD', 'SUB', 'AND', 'OR'].map(x => <option key={x}>{x}</option>)}
-                </select>
-              </label>
-              <label>Operand A<input type="number" value={a} onChange={e => setA(e.target.value)} /></label>
-              <label>Operand B<input type="number" value={b} onChange={e => setB(e.target.value)} /></label>
-              <label>Store address<input type="number" min="0" max="1023" value={address} onChange={e => setAddress(e.target.value)} /></label>
+              )}
             </div>
-            <button disabled={busy} onClick={() => handleOfflineCall('prepare')}>Generate program ↗</button>
-            {proposal && (
-              <div style={{marginTop: '12px'}}>
-                <pre>{proposal.source}</pre>
-                <p>{proposal.explanation}</p>
-                <button disabled={disabled} onClick={() => onLoad(proposal.source)}>Use in editor</button>
+          ) : (
+            <div>
+              <p style={{fontSize: '11px', color: '#94a3b8', margin: '4px 0 10px'}}>
+                Deterministic rule-based generator: builds a validated arithmetic program using fixed templates without network calls.
+              </p>
+              <div className="bot-inputs" style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px'}}>
+                <label style={{fontSize: '10.5px', color: '#94a3b8'}}>Operation
+                  <select value={operation} onChange={e => setOp(e.target.value)} style={{width: '100%', padding: '4px', marginTop: '2px'}}>
+                    {['ADD', 'SUB', 'AND', 'OR'].map(x => <option key={x}>{x}</option>)}
+                  </select>
+                </label>
+                <label style={{fontSize: '10.5px', color: '#94a3b8'}}>Operand A
+                  <input type="number" value={a} onChange={e => setA(e.target.value)} style={{width: '100%', padding: '4px', marginTop: '2px'}} />
+                </label>
+                <label style={{fontSize: '10.5px', color: '#94a3b8'}}>Operand B
+                  <input type="number" value={b} onChange={e => setB(e.target.value)} style={{width: '100%', padding: '4px', marginTop: '2px'}} />
+                </label>
+                <label style={{fontSize: '10.5px', color: '#94a3b8'}}>Store Address (0..1023)
+                  <input type="number" min="0" max="1023" value={address} onChange={e => setAddress(e.target.value)} style={{width: '100%', padding: '4px', marginTop: '2px'}} />
+                </label>
               </div>
-            )}
-          </article>
 
-          <article>
-            <h3><span className="avatar reviewer">R</span> Pipeline Reviewer (Offline)</h3>
-            <p>Compare execution with an independent sequential interpreter.</p>
-            <button disabled={!state || busy || disabled} onClick={() => handleOfflineCall('review')}>
-              Review current run ↗
-            </button>
-            {review && (
-              <div className="review">
-                <b>{review.verdict.toUpperCase()}{review.sessionId !== state?.sessionId || review.cycle !== state?.cycle ? ' · Previous snapshot' : ''}</b>
-                <p>{review.summary}</p>
-                <small>{review.policy}</small>
-                {review.mismatches?.map(x => <p key={x}>{x}</p>)}
+              <button disabled={busy} onClick={() => handleOfflineCall('prepare')}>
+                Generate Template Program ↗
+              </button>
+
+              {proposal && (
+                <div style={{marginTop: '12px', background: '#05080e', border: '1px solid #162030', padding: '10px', borderRadius: '6px'}}>
+                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px'}}>
+                    <span style={{fontSize: '10px', color: '#38bdf8', fontWeight: 800}}>TEMPLATE OUTPUT</span>
+                    <button disabled={disabled} style={{fontSize: '10px', padding: '2px 8px'}} onClick={() => onLoad(proposal.source)}>
+                      Load into Editor ↗
+                    </button>
+                  </div>
+                  <pre style={{margin: '0 0 6px'}}>{proposal.source}</pre>
+                  <p style={{fontSize: '11px', color: '#94a3b8', margin: 0}}>{proposal.explanation}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </article>
+
+        {/* ======================================================== */}
+        {/* BOT 2: PIPELINE REVIEWER & OPTIMIZER                      */}
+        {/* ======================================================== */}
+        <article className="bot-card bot-2">
+          <div className="bot-card-header">
+            <div className="bot-card-title-group">
+              <span className="avatar reviewer">🧠</span>
+              <div>
+                <h3>Bot 2: Pipeline Reviewer</h3>
+                <span className="bot-tag-sub">Independent Verifier & Optimizer</span>
               </div>
-            )}
-          </article>
-        </div>
-      )}
+            </div>
 
-      {error && <p role="alert" className="error" style={{marginTop: '16px'}}>{error}</p>}
+            {/* Independent Mode Switch for Bot 2 */}
+            <div className="bot-mode-pills">
+              <button
+                type="button"
+                className={`bot-mode-btn ${bot2Mode === 'ai' ? 'active ai' : ''}`}
+                onClick={() => setBot2Mode('ai')}
+                disabled={!aiConfig.configured}
+                title={!aiConfig.configured ? 'Add GEMINI_API_KEY in .env to enable AI' : 'Use Gemini AI Pipeline Coach'}
+              >
+                ✨ Gemini AI Coach
+              </button>
+              <button
+                type="button"
+                className={`bot-mode-btn ${bot2Mode === 'offline' ? 'active offline' : ''}`}
+                onClick={() => setBot2Mode('offline')}
+                title="Use Sequential Reference Interpreter"
+              >
+                ⚙️ Sequential Verifier
+              </button>
+            </div>
+          </div>
+
+          {/* BOT 2 CONTENT */}
+          {bot2Mode === 'ai' ? (
+            <div>
+              <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px'}}>
+                <p style={{fontSize: '11px', color: '#94a3b8', margin: 0}}>
+                  Explains cycles, breaks down RAW stalls, and provides AI-optimized code with speedup analysis.
+                </p>
+                {state?.status === 'completed' && (
+                  <span style={{fontSize: '9.5px', color: '#10b981', background: '#062920', padding: '2px 6px', borderRadius: '6px', fontWeight: 700, border: '1px solid #0f5132', whiteSpace: 'nowrap'}}>
+                    ✓ Auto-Analyzed
+                  </span>
+                )}
+              </div>
+
+              <button
+                className="primary"
+                disabled={!state || busy || disabled}
+                onClick={() => handleAiExplain()}
+                style={{marginBottom: '10px'}}
+              >
+                {busy ? 'Analyzing execution trace...' : 'Re-Analyze with AI 🧠'}
+              </button>
+
+              {aiExplanation && (
+                <div className="ai-coach-wrap">
+                  {/* Summary Header Card */}
+                  <div className="ai-summary-card">
+                    <div className="ai-summary-header">
+                      <div className="ai-summary-title">
+                        <span>VERDICT:</span>
+                        <span className={`ai-pill ${aiExplanation.verdict === 'pass' ? 'pass' : 'fail'}`}>
+                          {aiExplanation.verdict?.toUpperCase() || 'EVALUATED'}
+                        </span>
+                      </div>
+                      {aiExplanation.stats && (
+                        <div className="ai-pills-row">
+                          <span className="ai-pill">{aiExplanation.stats.cycle} Cycles</span>
+                          <span className="ai-pill">{aiExplanation.stats.stalls} Stalls</span>
+                          <span className="ai-pill">CPI {aiExplanation.stats.cpi}</span>
+                        </div>
+                      )}
+                    </div>
+                    {aiExplanation.overview && (
+                      <p className="ai-overview-text">
+                        <CleanMarkdown content={aiExplanation.overview} />
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Hazards & Stalls Section */}
+                  {aiExplanation.hazards?.length > 0 && (
+                    <div className="ai-card-group">
+                      <div className="ai-group-header">
+                        <span className="ai-group-title">
+                          <span>⚠️</span>
+                          <span>Where did stalls happen?</span>
+                        </span>
+                        <span className="ai-badge-count">{aiExplanation.hazards.length} Detected</span>
+                      </div>
+
+                      {aiExplanation.hazards.map((h, i) => {
+                        const title = h.title || `RAW Hazard #${i + 1}`;
+                        const reg = h.register || (h.explanation?.match(/R[0-7]/i)?.[0]?.toUpperCase());
+                        const cycles = h.cycles || 'Stall Cycles';
+                        const stalls = h.stalls || 2;
+
+                        return (
+                          <div key={i} className="hazard-item-card">
+                            <div className="hazard-item-top">
+                              <div className="hazard-tag">
+                                <span>🛑</span>
+                                <span>{title}</span>
+                              </div>
+                              <div className="hazard-subtags">
+                                {reg && <span className="subtag subtag-reg">Reg {reg}</span>}
+                                <span className="subtag subtag-cycle">{cycles} ({stalls} Stalls)</span>
+                              </div>
+                            </div>
+                            {(h.producer || h.consumer) && (
+                              <div className="hazard-flow">
+                                <span>{h.producer} (Producer)</span>
+                                <span className="arrow">➔</span>
+                                <span>{h.consumer} (Waiting in ID)</span>
+                              </div>
+                            )}
+                            <div className="hazard-desc">
+                              <CleanMarkdown content={h.explanation} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Optimization Advice */}
+                  {aiExplanation.optimizationTips?.length > 0 && (
+                    <div className="ai-card-group">
+                      <div className="ai-group-header">
+                        <span className="ai-group-title">
+                          <span>💡</span>
+                          <span>Optimization & Scheduling Tips</span>
+                        </span>
+                        <span className="ai-badge-count">{aiExplanation.optimizationTips.length} Tips</span>
+                      </div>
+
+                      {aiExplanation.optimizationTips.map((tip, i) => (
+                        <div key={i} className="opt-item-card">
+                          <div className="opt-item-top">
+                            <div className="opt-tag">
+                              <span>💡</span>
+                              <span>{tip.title || `Tip #${i + 1}`}</span>
+                            </div>
+                            {tip.benefit && <span className="opt-benefit-pill">{tip.benefit}</span>}
+                          </div>
+                          <div className="opt-desc">
+                            <CleanMarkdown content={tip.advice || tip.explanation || tip} />
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* AI-Optimized Code Box with 1-Click Load into Editor */}
+                      {aiExplanation.optimizedCode?.source && (
+                        <div className="opt-code-card">
+                          <div className="opt-code-header">
+                            <span className="opt-code-title">
+                              <span>⚡</span>
+                              <span>Optimized Assembly Code</span>
+                            </span>
+                            <span className="opt-code-badge">
+                              {aiExplanation.optimizedCode.savings || 'Reduced Stalls'}
+                            </span>
+                          </div>
+                          {aiExplanation.optimizedCode.explanation && (
+                            <p className="opt-code-desc">
+                              <CleanMarkdown content={aiExplanation.optimizedCode.explanation} />
+                            </p>
+                          )}
+                          <pre className="opt-code-pre">{aiExplanation.optimizedCode.source}</pre>
+                          <button
+                            className="primary"
+                            disabled={disabled}
+                            style={{fontSize: '11px', padding: '6px 10px'}}
+                            onClick={() => onLoad(aiExplanation.optimizedCode.source)}
+                          >
+                            Load Optimized Code into Editor ↗
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Data Forwarding Speedup Banner */}
+                  {aiExplanation.forwarding && (
+                    <div className="forwarding-banner">
+                      <div className="forwarding-top">
+                        <div className="forwarding-title">
+                          <span>⚡</span>
+                          <span>Hardware Data Forwarding Impact</span>
+                        </div>
+                        <span className="forwarding-pill">
+                          {aiExplanation.forwarding.speedup || '~1.7x Speedup'}
+                        </span>
+                      </div>
+                      {aiExplanation.forwarding.summary && (
+                        <div className="forwarding-summary">
+                          <CleanMarkdown content={aiExplanation.forwarding.summary} />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px'}}>
+                <p style={{fontSize: '11px', color: '#94a3b8', margin: 0}}>
+                  Independently executes program sequentially and mathematically verifies all final registers and memory values.
+                </p>
+                {state?.status === 'completed' && (
+                  <span style={{fontSize: '9.5px', color: '#10b981', background: '#062920', padding: '2px 6px', borderRadius: '6px', fontWeight: 700, border: '1px solid #0f5132', whiteSpace: 'nowrap'}}>
+                    ✓ Auto-Reviewed
+                  </span>
+                )}
+              </div>
+
+              <button
+                disabled={!state || busy || disabled}
+                onClick={() => handleOfflineCall('review')}
+                style={{marginBottom: '10px'}}
+              >
+                Review Current Run (Sequential Reference) ↗
+              </button>
+
+              {review && (
+                <div className="review" style={{background: '#05080e', border: '1px solid #162030', padding: '12px', borderRadius: '6px'}}>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px'}}>
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      background: review.verdict === 'pass' ? '#064e3b' : '#7f1d1d',
+                      color: review.verdict === 'pass' ? '#34d399' : '#f87171'
+                    }}>
+                      VERDICT: {review.verdict.toUpperCase()}
+                    </span>
+                    {review.sessionId !== state?.sessionId || review.cycle !== state?.cycle ? (
+                      <span style={{fontSize: '10px', color: '#64748b'}}>· Previous snapshot</span>
+                    ) : null}
+                  </div>
+                  <p style={{fontSize: '11.5px', color: '#e2e8f0', margin: '4px 0 6px'}}>{review.summary}</p>
+                  <small style={{display: 'block', color: '#64748b', fontSize: '10px', borderTop: '1px solid #162030', paddingTop: '4px'}}>
+                    Policy: {review.policy}
+                  </small>
+                  {review.mismatches?.map(x => (
+                    <p key={x} style={{color: '#f87171', margin: '4px 0 0', fontSize: '11px'}}>{x}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </article>
+      </div>
+
+      {error && <p role="alert" className="error" style={{marginTop: '12px'}}>{error}</p>}
     </section>
   );
 }
