@@ -9,7 +9,7 @@
 import {GoogleGenAI} from '@google/genai';
 import {review} from '../agents/pipelineReviewer.js';
 
-const DEFAULT_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const DEFAULT_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
 
 export function isBot2AiConfigured() {
   return Boolean(process.env.GEMINI_API_KEY?.trim());

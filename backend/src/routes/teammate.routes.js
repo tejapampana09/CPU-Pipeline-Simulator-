@@ -12,7 +12,7 @@ export function teammateRoutes(service) {
       success: true,
       data: {
         configured: isAiConfigured(),
-        model: process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+        model: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite'
       }
     });
   });

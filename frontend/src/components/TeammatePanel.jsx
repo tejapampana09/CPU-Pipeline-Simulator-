@@ -45,7 +45,7 @@ function CleanMarkdown({content}) {
 }
 
 export default function TeammatePanel({state, onLoad, disabled}) {
-  const [aiConfig, setAiConfig] = useState({configured: false, model: 'gemini-2.5-flash'});
+  const [aiConfig, setAiConfig] = useState({configured: false, model: 'gemini-3.5-flash-lite'});
   
   // Independent mode states for each bot!
   const [bot1Mode, setBot1Mode] = useState('ai'); // 'ai' | 'offline'
@@ -433,10 +433,11 @@ export default function TeammatePanel({state, onLoad, disabled}) {
                       </div>
 
                       {aiExplanation.hazards.map((h, i) => {
-                        const title = h.title || `RAW Hazard #${i + 1}`;
-                        const reg = h.register || (h.explanation?.match(/R[0-7]/i)?.[0]?.toUpperCase());
-                        const cycles = h.cycles || 'Stall Cycles';
-                        const stalls = h.stalls || 2;
+                        const title = typeof h === 'string' ? `RAW Hazard #${i + 1}` : (h.title || `RAW Hazard #${i + 1}`);
+                        const reg = typeof h === 'string' ? h.match(/R[0-7]/i)?.[0]?.toUpperCase() : (h.register || h.explanation?.match(/R[0-7]/i)?.[0]?.toUpperCase());
+                        const cycles = typeof h === 'string' ? 'Stall Cycles' : (h.cycles || 'Stall Cycles');
+                        const stalls = typeof h === 'string' ? 2 : (h.stalls || 2);
+                        const desc = typeof h === 'string' ? h : (h.explanation || '');
 
                         return (
                           <div key={i} className="hazard-item-card">
@@ -458,7 +459,7 @@ export default function TeammatePanel({state, onLoad, disabled}) {
                               </div>
                             )}
                             <div className="hazard-desc">
-                              <CleanMarkdown content={h.explanation} />
+                              <CleanMarkdown content={desc} />
                             </div>
                           </div>
                         );
@@ -493,7 +494,7 @@ export default function TeammatePanel({state, onLoad, disabled}) {
                       ))}
 
                       {/* AI-Optimized Code Box with 1-Click Load into Editor */}
-                      {aiExplanation.optimizedCode?.source && (
+                      {aiExplanation.optimizedCode && (
                         <div className="opt-code-card">
                           <div className="opt-code-header">
                             <span className="opt-code-title">
@@ -501,20 +502,22 @@ export default function TeammatePanel({state, onLoad, disabled}) {
                               <span>Optimized Assembly Code</span>
                             </span>
                             <span className="opt-code-badge">
-                              {aiExplanation.optimizedCode.savings || 'Reduced Stalls'}
+                              {(typeof aiExplanation.optimizedCode === 'object' && aiExplanation.optimizedCode.savings) || 'Reduced Stalls'}
                             </span>
                           </div>
-                          {aiExplanation.optimizedCode.explanation && (
+                          {typeof aiExplanation.optimizedCode === 'object' && aiExplanation.optimizedCode.explanation && (
                             <p className="opt-code-desc">
                               <CleanMarkdown content={aiExplanation.optimizedCode.explanation} />
                             </p>
                           )}
-                          <pre className="opt-code-pre">{aiExplanation.optimizedCode.source}</pre>
+                          <pre className="opt-code-pre">
+                            {typeof aiExplanation.optimizedCode === 'string' ? aiExplanation.optimizedCode : (aiExplanation.optimizedCode.source || '')}
+                          </pre>
                           <button
                             className="primary"
                             disabled={disabled}
                             style={{fontSize: '11px', padding: '6px 10px'}}
-                            onClick={() => onLoad(aiExplanation.optimizedCode.source)}
+                            onClick={() => onLoad(typeof aiExplanation.optimizedCode === 'string' ? aiExplanation.optimizedCode : (aiExplanation.optimizedCode.source || ''))}
                           >
                             Load Optimized Code into Editor ↗
                           </button>
@@ -532,14 +535,12 @@ export default function TeammatePanel({state, onLoad, disabled}) {
                           <span>Hardware Data Forwarding Impact</span>
                         </div>
                         <span className="forwarding-pill">
-                          {aiExplanation.forwarding.speedup || '~1.7x Speedup'}
+                          {(typeof aiExplanation.forwarding === 'object' && aiExplanation.forwarding.speedup) || '~1.7x Speedup'}
                         </span>
                       </div>
-                      {aiExplanation.forwarding.summary && (
-                        <div className="forwarding-summary">
-                          <CleanMarkdown content={aiExplanation.forwarding.summary} />
-                        </div>
-                      )}
+                      <div className="forwarding-summary">
+                        <CleanMarkdown content={typeof aiExplanation.forwarding === 'string' ? aiExplanation.forwarding : (aiExplanation.forwarding.summary || '')} />
+                      </div>
                     </div>
                   )}
                 </div>
