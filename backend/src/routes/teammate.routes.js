@@ -1,12 +1,12 @@
 import {Router} from 'express';
-import {prepare} from '../agents/assemblyAssistant.js';
-import {review} from '../agents/pipelineReviewer.js';
-import {isAiConfigured, generateAssemblyAi, explainPipelineAi} from '../services/aiService.js';
+import {generateAssemblyAi, generateTemplateAssembly} from '../services/bot1AssemblyService.js';
+import {explainPipelineAi, verifyPipelineSequentially} from '../services/bot2ReviewerService.js';
+import {isAiConfigured} from '../services/aiService.js';
 
 export function teammateRoutes(service) {
   const r = Router();
 
-  // AI configuration status
+  // Status endpoint: checks if Gemini AI is active
   r.get('/status', (req, res) => {
     res.json({
       success: true,
@@ -17,17 +17,11 @@ export function teammateRoutes(service) {
     });
   });
 
-  // Offline deterministic endpoints (backward compatible)
-  r.post('/prepare', (req, res) => {
-    res.json({success: true, data: prepare(req.body)});
-  });
-
-  r.post('/review', (req, res) => {
-    res.json({success: true, data: review(service.get(req.body?.sessionId))});
-  });
-
-  // AI-powered Natural Language to Assembly endpoint
-  r.post('/ai-generate', async (req, res, next) => {
+  // ========================================================
+  // BOT 1: ASSEMBLY ARCHITECT ENDPOINTS
+  // ========================================================
+  // AI-powered Assembly Generation (Bot 1)
+  r.post(['/ai-generate', '/bot1/generate'], async (req, res, next) => {
     try {
       const {prompt} = req.body || {};
       if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
@@ -43,8 +37,16 @@ export function teammateRoutes(service) {
     }
   });
 
-  // AI-powered Pipeline Explainer and Optimizer endpoint
-  r.post('/ai-explain', async (req, res, next) => {
+  // Deterministic Template Generation (Bot 1 Offline)
+  r.post(['/prepare', '/bot1/prepare'], (req, res) => {
+    res.json({success: true, data: generateTemplateAssembly(req.body)});
+  });
+
+  // ========================================================
+  // BOT 2: PIPELINE REVIEWER & OPTIMIZER ENDPOINTS
+  // ========================================================
+  // AI-powered Pipeline Explainer and Optimizer (Bot 2)
+  r.post(['/ai-explain', '/bot2/explain'], async (req, res, next) => {
     try {
       const sessionId = req.body?.sessionId;
       if (!sessionId) {
@@ -59,6 +61,11 @@ export function teammateRoutes(service) {
     } catch (err) {
       next(err);
     }
+  });
+
+  // Deterministic Sequential Reference Verification (Bot 2 Offline)
+  r.post(['/review', '/bot2/review'], (req, res) => {
+    res.json({success: true, data: verifyPipelineSequentially(service.get(req.body?.sessionId))});
   });
 
   return r;
