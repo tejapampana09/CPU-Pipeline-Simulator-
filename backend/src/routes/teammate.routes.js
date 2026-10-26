@@ -1,6 +1,4 @@
 import {Router} from 'express';
-import {prepare} from '../agents/assemblyAssistant.js';
-import {review} from '../agents/pipelineReviewer.js';
 import {isAiConfigured, generateAssemblyAi, explainPipelineAi} from '../services/aiService.js';
 
 export function teammateRoutes(service) {
@@ -17,15 +15,6 @@ export function teammateRoutes(service) {
     });
   });
 
-  // Offline deterministic endpoints (backward compatible)
-  r.post('/prepare', (req, res) => {
-    res.json({success: true, data: prepare(req.body)});
-  });
-
-  r.post('/review', (req, res) => {
-    res.json({success: true, data: review(service.get(req.body?.sessionId))});
-  });
-
   // AI-powered Natural Language to Assembly endpoint
   r.post('/ai-generate', async (req, res, next) => {
     try {
@@ -37,7 +26,7 @@ export function teammateRoutes(service) {
         });
       }
       const data = await generateAssemblyAi({prompt: prompt.trim()});
-      res.json({success: true, data});
+      res.status(data.success ? 200 : (data.isConfigured ? 502 : 503)).json({success: data.success, data, error: data.success ? undefined : {message: data.message || data.error}});
     } catch (err) {
       next(err);
     }
