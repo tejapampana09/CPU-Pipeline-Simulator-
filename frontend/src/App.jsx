@@ -93,9 +93,8 @@ export default function App() {
           </div>
 
           <button
-            className={`mode-pill ${showAiBots ? 'active' : ''}`}
+            className={`mode-pill ai-toggle-pill ${showAiBots ? 'active' : ''}`}
             onClick={() => setShowAiBots(!showAiBots)}
-            style={{background: showAiBots ? '#1e293b' : 'transparent', border: '1px solid #2d3b52', color: '#38bdf8'}}
           >
             ✨ AI Teammates
           </button>

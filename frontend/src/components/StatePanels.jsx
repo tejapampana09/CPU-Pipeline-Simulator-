@@ -30,8 +30,8 @@ export default function StatePanels({state}) {
       {/* 1. Registers Block */}
       <div className="state-block">
         <div className="state-block-header">
-          <span style={{color: '#fff', fontWeight: 800}}>REGISTERS</span>
-          <span style={{color: '#64748b', fontSize: '10px'}}>32-bit (8086 Aliases)</span>
+          <span className="block-title">REGISTERS</span>
+          <span className="block-sub">32-bit (8086 Aliases)</span>
         </div>
 
         <div className="registers-grid-cards">
@@ -62,8 +62,8 @@ export default function StatePanels({state}) {
         {/* PC and Next Fetch Footer */}
         <div className="pc-status-strip">
           <div className="pc-pill-tag">
-            <span style={{color: '#94a3b8', fontSize: '9.5px', marginRight: '4px'}}>PC</span>
-            <span style={{color: '#facc15', fontWeight: 700}}>{toHex32(pc).slice(0, 6)}</span>
+            <span style={{color: '#64748b', fontSize: '10px', marginRight: '4px', fontWeight: 700}}>PC</span>
+            <span style={{color: '#0f172a', fontWeight: 800}}>{toHex32(pc).slice(0, 6)}</span>
           </div>
           <div className="next-fetch-tag">
             {nextFetchIdx <= (state?.program?.length || 0)
@@ -76,8 +76,8 @@ export default function StatePanels({state}) {
       {/* 2. Memory Block */}
       <div className="state-block">
         <div className="state-block-header">
-          <span style={{color: '#fff', fontWeight: 800}}>MEMORY</span>
-          <span style={{color: '#64748b'}}>{memoryEntries.length} words written</span>
+          <span className="block-title">MEMORY</span>
+          <span className="block-sub">{memoryEntries.length} words written</span>
         </div>
 
         <div className="memory-box">
@@ -102,8 +102,8 @@ export default function StatePanels({state}) {
       {/* 3. Event Log Block */}
       <div className="state-block">
         <div className="state-block-header">
-          <span style={{color: '#fff', fontWeight: 800}}>EVENT LOG</span>
-          <span style={{color: '#64748b'}}>cycle {state?.cycle ?? 0}</span>
+          <span className="block-title">EVENT LOG</span>
+          <span className="block-sub">cycle {state?.cycle ?? 0}</span>
         </div>
 
         <div className="events-box">

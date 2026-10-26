@@ -41,7 +41,7 @@ export default function PipelineDiagram({state, running}) {
                   <span className="token-inst-text" title={token.text}>{token.text}</span>
                 </div>
               ) : isBubble ? (
-                <div className="stage-token-box" style={{borderColor: '#ea580c', background: '#1c1208'}}>
+                <div className="stage-token-box bubble">
                   <span className="token-bubble-tag">BUBBLE</span>
                 </div>
               ) : (
