@@ -102,17 +102,7 @@ export async function explainPipelineAi({sessionState, preferredModel = DEFAULT_
   const offlineReview = review(sessionState);
 
   if (!apiKey) {
-    return {
-      success: false,
-      isConfigured: false,
-      bot: 'Offline Pipeline Reviewer',
-      mode: 'deterministic-offline',
-      verdict: offlineReview.verdict,
-      mismatches: offlineReview.mismatches,
-      summary: offlineReview.summary,
-      offlineReview,
-      message: 'GEMINI_API_KEY is not configured in backend/.env. Showing offline deterministic review.'
-    };
+    return {success: false, isConfigured: false, message: 'Online AI unavailable: configure GEMINI_API_KEY in backend/.env.'};
   }
 
   const ai = new GoogleGenAI({apiKey});
@@ -293,16 +283,6 @@ Return valid JSON with these exact keys:
       }
     };
   } catch (err) {
-    return {
-      success: false,
-      isConfigured: true,
-      bot: 'Pipeline Reviewer (Fallback)',
-      mode: 'deterministic-fallback',
-      verdict: offlineReview.verdict,
-      mismatches: offlineReview.mismatches,
-      summary: offlineReview.summary,
-      error: err.message,
-      message: `AI analysis unavailable (${err.message}). Showing deterministic review.`
-    };
+    return {success: false, isConfigured: true, mode: 'online-error', message: `Gemini AI analysis failed: ${err.message}`};
   }
 }
