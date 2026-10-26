@@ -1,0 +1,66 @@
+import {STAGES} from '../../../shared/contracts.js';
+
+const STAGE_META = {
+  IF: {name: 'Instruction Fetch', color: 'stage-IF'},
+  ID: {name: 'Decode · Reg Read', color: 'stage-ID'},
+  EX: {name: 'Execute · ALU', color: 'stage-EX'},
+  MEM: {name: 'Memory Access', color: 'stage-MEM'},
+  WB: {name: 'Write Back', color: 'stage-WB'}
+};
+
+export default function PipelineDiagram({state, running}) {
+  const last = state?.history?.at(-1);
+
+  return (
+    <div className="datapath-section">
+      <div className="section-subhead">
+        <span>PIPELINE DATAPATH &nbsp;·&nbsp; forwarding off &nbsp;·&nbsp; stall on RAW</span>
+        <span>{state?.status || 'idle'}</span>
+      </div>
+
+      <div className="pipeline-stages-row">
+        {STAGES.map((stage, idx) => {
+          const meta = STAGE_META[stage];
+          const token = state?.pipeline?.[stage];
+          const isStalledHold = last?.stalled && (stage === 'IF' || stage === 'ID');
+          const isBubble = last?.stalled && stage === 'EX' && !token;
+
+          return (
+            <div
+              key={stage}
+              className={`stage-card ${meta.color} ${isStalledHold ? 'stalled-hold' : ''}`}
+            >
+              <div className="stage-card-header">
+                <span className="stage-abbr">{stage}</span>
+                <span className="stage-full">{meta.name}</span>
+              </div>
+
+              {token ? (
+                <div className="stage-token-box active">
+                  <span className="token-id-tag">I{token.id + 1}</span>
+                  <span className="token-inst-text" title={token.text}>{token.text}</span>
+                </div>
+              ) : isBubble ? (
+                <div className="stage-token-box" style={{borderColor: '#ea580c', background: '#1c1208'}}>
+                  <span className="token-bubble-tag">BUBBLE</span>
+                </div>
+              ) : (
+                <div className="stage-token-box idle">
+                  <span>IDLE</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="datapath-caption">
+        {running
+          ? '▶ Clock running... executing instruction flow.'
+          : state?.status === 'completed'
+          ? '✓ Program completed. Drained all stages.'
+          : 'Clock stopped. Press ▷| to step or Space to run.'}
+      </div>
+    </div>
+  );
+}

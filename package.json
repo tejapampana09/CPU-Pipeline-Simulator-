@@ -1,0 +1,19 @@
+{
+  "name": "coa-pipeline-simulator",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently -k \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "test": "node --test tests/*.test.js",
+    "build": "npm run build -w frontend",
+    "start": "npm start -w backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "supertest": "^7.1.1"
+  }
+}

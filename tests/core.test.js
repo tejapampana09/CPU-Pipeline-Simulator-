@@ -1,0 +1,21 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {parse} from '../backend/src/parser/assemblyParser.js';
+import {createMachine} from '../backend/src/cpu/machine.js';
+import {step} from '../backend/src/pipeline/pipelineEngine.js';
+import {review} from '../backend/src/agents/pipelineReviewer.js';
+import {prepare} from '../backend/src/agents/assemblyAssistant.js';
+import {SAMPLES} from '../shared/contracts.js';
+function run(source){let s=createMachine(parse(source));for(let i=0;i<5000&&s.status!=='completed';i++)s=step(s);assert.equal(s.status,'completed');return s;}
+test('parser: case, comments, CRLF, source lines and PC',()=>{const p=parse('# comment\r\nli r1, -2\r\n\nADD R2, R1, R1 # sum');assert.equal(p.length,2);assert.equal(p[0].line,2);assert.equal(p[1].pc,4);assert.deepEqual(p[1].src,['R1','R1']);});
+test('parser rejects unsupported instructions and malformed/range inputs',()=>{for(const text of ['', 'ADD R8, R1, R2','JMP 4','LI R1, 2147483648','LOAD R1, -1','STORE R1, 1024','LI R1 2','ADD R1, R2','LI R1, 1.5','LI R1, 1,'])assert.throws(()=>parse(text),text);});
+test('first step fetches exactly one token and does not mutate input',()=>{const s=createMachine(parse('LI R1, 7'));const n=step(s);assert.equal(s.cycle,0);assert.equal(n.cycle,1);assert.equal(n.pipeline.IF.id,0);assert.equal(n.pipeline.ID,null);assert.equal(n.registers.R1,0);});
+test('independent instructions: N+5 cycles under published occupancy convention',()=>{const s=run(SAMPLES['Independent writes']);assert.equal(s.cycle,9);assert.equal(s.statistics.stalls,0);assert.equal(s.statistics.instructionsCompleted,4);assert.equal(s.registers.R4,21);});
+test('RAW holds ID and IF, injects bubble and releases after WB commit',()=>{let s=createMachine(parse('LI R1, 10\nADD R2, R1, R1\nLI R3, 9'));s=step(step(step(s)));const old=structuredClone(s);s=step(s);assert.equal(s.pipeline.ID.id,old.pipeline.ID.id);assert.equal(s.pipeline.IF.id,old.pipeline.IF.id);assert.equal(s.pipeline.EX,null);assert.equal(s.pc,old.pc);const done=run('LI R1, 10\nADD R2, R1, R1\nLI R3, 9');assert.equal(done.statistics.stalls,2);assert.equal(done.registers.R2,20);assert.equal(done.statistics.instructionsCompleted,3);});
+test('document sample final values and memory agree',()=>{const s=run(SAMPLES.Dependencies);assert.deepEqual(s.registers,{R0:0,R1:10,R2:20,R3:30,R4:20,R5:20,R6:0,R7:0});assert.equal(s.memory[30],20);assert.equal(review(s).verdict,'pass');});
+test('load-use and store dependencies retain correct data',()=>{const s=run('LI R1, 41\nSTORE R1, 0\nLOAD R2, 0\nADD R3, R2, R2\nSTORE R3, 1');assert.equal(s.memory[1],82);assert.equal(review(s).verdict,'pass');});
+test('R0 is writable, signed 32-bit wrap, default memory is zero',()=>{const s=run('LI R0, 2147483647\nLI R1, 1\nADD R2, R0, R1\nLOAD R3, 1023');assert.equal(s.registers.R0,2147483647);assert.equal(s.registers.R2,-2147483648);assert.equal(s.registers.R3,0);});
+test('multiple writers to one register preserve latest value',()=>{const s=run('LI R1, 1\nLI R1, 2\nADD R2, R1, R1');assert.equal(s.registers.R2,4);});
+test('completed step is unchanged; pending review does not falsely pass',()=>{assert.equal(review(createMachine(parse('LI R1, 2'))).verdict,'pending');const s=run('LI R1, 2');assert.deepEqual(step(s),s);s.registers.R1=8;assert.equal(review(s).verdict,'fail');});
+test('both bot roles cooperate without external calls',()=>{for(const operation of ['ADD','SUB','AND','OR']){const p=prepare({operation,a:-15,b:7,address:4});assert.equal(review(run(p.source)).verdict,'pass');}assert.throws(()=>prepare({operation:'JMP'}));});
+test('100 seeded generated programs match independent sequential interpreter',()=>{let seed=42;const rand=n=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed%n;};for(let k=0;k<100;k++){const lines=[];for(let i=0;i<35;i++){const r=()=>`R${rand(8)}`,op=rand(8);lines.push(op===0?`LI ${r()}, ${rand(100)-50}`:op===1?`LOAD ${r()}, ${rand(8)}`:op===2?`STORE ${r()}, ${rand(8)}`:`${['ADD','SUB','AND','OR'][rand(4)]} ${r()}, ${r()}, ${r()}`);}const s=run(lines.join('\n'));assert.equal(review(s).verdict,'pass',lines.join('\n'));assert.equal(s.statistics.instructionsCompleted,35);}});
