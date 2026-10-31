@@ -39,15 +39,17 @@ function generateSmartFallbackAnalysis(sessionState, offlineReview) {
 
     if (!seenPairs.has(key)) {
       seenPairs.add(key);
-      const isALUtoALU = !producerInst.startsWith('LOAD');
+      const occurrences = rawEvents.filter(ev => ev.producerId === e.producerId && ev.consumerId === e.consumerId && ev.register === e.register);
+      const cycleList = occurrences.map(ev => ev.cycle);
+      const cycleStr = cycleList.length === 1 ? `Cycle ${cycleList[0]}` : `Cycles ${Math.min(...cycleList)}–${Math.max(...cycleList)}`;
       groupedHazards.push({
         title: `RAW Hazard on ${e.register}`,
         register: e.register,
-        cycles: `Cycles ${e.cycle}–${e.cycle + 1}`,
-        stalls: 2,
+        cycles: cycleStr,
+        stalls: occurrences.length,
         producer: producerInst,
         consumer: consumerInst,
-        explanation: `Instruction '${consumerInst}' in ID stage needed register ${e.register} from preceding '${producerInst}'. Because our CPU operates without hardware data forwarding, the operand must commit at the WB stage before ID can read it, injecting 2 stall bubbles into EX.`
+        explanation: `Instruction '${consumerInst}' in ID stage needed register ${e.register} from preceding '${producerInst}'. Because our CPU operates without hardware data forwarding, the operand must commit at the WB stage before ID can read it, injecting ${occurrences.length} stall bubble(s) into EX.`
       });
     }
   }

@@ -117,7 +117,7 @@ export default function StatePanels({state}) {
               <span className="event-cycle">{String(e.cycle).padStart(2, '0')}</span>
               <span className="event-type raw">{e.type}</span>
               <span className="event-text">
-                <strong style={{color: '#cbd5e1'}}>{e.register}</strong> · {e.reason}
+                <strong style={{color: '#0f172a', fontWeight: 800}}>{e.register}</strong> · {e.reason}
               </span>
             </div>
           ))}

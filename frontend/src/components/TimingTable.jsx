@@ -44,12 +44,17 @@ export default function TimingTable({state}) {
                     if (!stage) return <td key={c} style={{color: '#1a2436'}}>·</td>;
 
                     const isStalled = h.stalled && (stage === 'IF' || stage === 'ID');
+                    const tooltip = isStalled
+                      ? (stage === 'ID'
+                          ? `Cycle ${c}: ID (RAW Hazard Stall — waiting for register operand)`
+                          : `Cycle ${c}: IF (Pipeline Freeze — waiting for ID stage to advance)`)
+                      : `Cycle ${c}: ${stage}`;
 
                     return (
                       <td
                         key={c}
                         className={`cell-${stage} ${isStalled ? 'cell-stall' : ''}`}
-                        title={`Cycle ${c}: ${stage}${isStalled ? ' (Stalled)' : ''}`}
+                        title={tooltip}
                       >
                         {stage}{isStalled ? '*' : ''}
                       </td>
@@ -66,6 +71,12 @@ export default function TimingTable({state}) {
             )}
           </tbody>
         </table>
+      </div>
+
+      <div style={{display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', marginTop: '8px', fontSize: '10.5px', color: '#64748b'}}>
+        <span><strong>Stall Legend:</strong></span>
+        <span><span style={{color: '#dc2626', fontWeight: 700}}>ID*</span> = RAW Data Hazard (waiting for register operand)</span>
+        <span><span style={{color: '#d97706', fontWeight: 700}}>IF*</span> = Pipeline Held (held in IF until ID stage clears)</span>
       </div>
     </div>
   );

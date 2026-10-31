@@ -10,6 +10,7 @@ const STAGE_META = {
 
 export default function PipelineDiagram({state, running}) {
   const last = state?.history?.at(-1);
+  const currentHazards = (state?.events || []).filter(e => e.cycle === state?.cycle);
 
   return (
     <div className="datapath-section">
@@ -17,6 +18,15 @@ export default function PipelineDiagram({state, running}) {
         <span>PIPELINE DATAPATH &nbsp;·&nbsp; forwarding off &nbsp;·&nbsp; stall on RAW</span>
         <span>{state?.status || 'idle'}</span>
       </div>
+
+      {last?.stalled && currentHazards.length > 0 && (
+        <div className="datapath-hazard-banner">
+          <span className="hazard-tag-badge">🛑 RAW HAZARD (Cycle {state?.cycle})</span>
+          <span className="hazard-banner-msg">
+            Waiting for operand {currentHazards.map(h => `${h.register} (producer in ${h.stage})`).join(' & ')} · Holding IF/ID, Injecting BUBBLE into EX
+          </span>
+        </div>
+      )}
 
       <div className="pipeline-stages-row">
         {STAGES.map((stage, idx) => {

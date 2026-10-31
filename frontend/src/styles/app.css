@@ -726,6 +726,32 @@ body {
   text-transform: uppercase;
 }
 
+.datapath-hazard-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-size: 11.5px;
+  color: #9f1239;
+}
+.hazard-tag-badge {
+  background: #e11d48;
+  color: #ffffff;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 800;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+.hazard-banner-msg {
+  font-weight: 600;
+}
+
 /* 5 Horizontal Stages in a Row! */
 .pipeline-stages-row {
   display: grid;
@@ -1272,6 +1298,16 @@ body {
 .event-cycle { color: #94a3b8; font-weight: 700; min-width: 18px; }
 .event-type.sys { color: #2563eb; font-weight: 700; }
 .event-type.hazard { color: #d97706; font-weight: 700; }
+.event-type.raw {
+  color: #dc2626;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
 .event-text { color: #334155; }
 
 /* ==========================================================================
