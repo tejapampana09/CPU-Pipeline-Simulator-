@@ -193,3 +193,6 @@ export function transpileToPipelineIsa(source) {
 
   return converted.join('\n');
 }
+
+export const transpileToRisc = transpileToPipelineIsa;
+export const detectLegacyAssembly = detectLegacySyntax;

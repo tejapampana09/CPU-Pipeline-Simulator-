@@ -1,15 +1,96 @@
-import {useState,useRef,useEffect} from 'react';
-import {api} from '../api/simulationApi.js';
-export function useSimulation(){
- const [state,setState]=useState(null),[busy,setBusy]=useState(false),[running,setRunning]=useState(false),[error,setError]=useState(''),[speed,setSpeed]=useState(500);
- const lock=useRef(false),live=useRef(true),runRef=useRef(false),current=useRef(null);
- useEffect(()=>()=>{live.current=false;runRef.current=false;},[]);
- function pause(){runRef.current=false;setRunning(false);}
- async function action(path,body){if(lock.current)return;lock.current=true;setBusy(true);setError('');try{const result=await api(path,body);if(live.current){current.current=result;setState(result);if(result.status==='completed')pause();}return result;}catch(e){if(live.current){setError(e.message);pause();}}finally{lock.current=false;if(live.current)setBusy(false);}}
- async function initialize(source, forwarding = false){pause();const old=current.current?.sessionId;const s=await action('simulations',{source, forwarding: Boolean(forwarding)});if(s&&old)api('simulations/'+old,undefined,'DELETE').catch(()=>{});}
- const step=()=>current.current&&action(`simulations/${current.current.sessionId}/step`,{});
- const reset=(forwarding)=>{pause();const fwd = forwarding !== undefined ? Boolean(forwarding) : Boolean(current.current?.forwarding);return current.current&&action(`simulations/${current.current.sessionId}/reset`,{forwarding: fwd});};
- useEffect(()=>{if(!running||busy||!state||state.status==='completed')return;const timer=setTimeout(()=>{if(runRef.current)step();},speed);return()=>clearTimeout(timer);},[running,busy,state,speed]);
- function run(){if(!current.current||current.current.status==='completed')return;runRef.current=true;setRunning(true);}
- return {state,busy,running,error,speed,setSpeed,initialize,step,reset,run,pause};
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { SAMPLE_PROGRAMS } from '@shared/constants.js'
+import { parseProgram } from '../sim/parser.js'
+import { runSimulation } from '../api/client.js'
+
+export const SPEEDS = [
+  { label: '0.5×', ms: 1400 },
+  { label: '1×', ms: 700 },
+  { label: '2×', ms: 350 },
+  { label: '4×', ms: 160 },
+]
+
+export function useSimulation() {
+  const [source, setSource] = useState(SAMPLE_PROGRAMS[0].source)
+  const [assembled, setAssembled] = useState(null)
+  const [options, setOptions] = useState({ mode: 'pipeline', forwarding: false, issueWidth: 0 })
+  const [result, setResult] = useState(null)
+  const [cycle, setCycle] = useState(0)
+  const [playing, setPlaying] = useState(false)
+  const [speed, setSpeed] = useState(SPEEDS[1].ms)
+  const [runError, setRunError] = useState(null)
+  const requestId = useRef(0)
+  const assembledRef = useRef(null)
+  assembledRef.current = assembled
+
+  const errors = useMemo(() => parseProgram(source).errors, [source])
+  const dirty = assembled !== null && source !== assembled
+
+  const simulate = useCallback(async (src, opts, keepCycle) => {
+    const id = ++requestId.current
+    try {
+      const res = await runSimulation(src, opts)
+      if (id !== requestId.current) return
+      if (res.errors?.length) {
+        setRunError(res.errors[0].message)
+        return
+      }
+      setRunError(null)
+      setResult(res)
+      setAssembled(src)
+      const last = res.snapshots.length - 1
+      setCycle((c) => (keepCycle ? Math.min(c, last) : 0))
+      if (!keepCycle) setPlaying(false)
+    } catch (e) {
+      if (id === requestId.current) setRunError(e.message)
+    }
+  }, [])
+
+  // Re-run when options change, keeping the clock where it is so variants can be compared.
+  useEffect(() => {
+    simulate(assembledRef.current ?? source, options, assembledRef.current !== null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [options, simulate])
+
+  const assemble = useCallback(() => {
+    if (errors.length) return
+    simulate(source, options, false)
+  }, [errors, source, options, simulate])
+
+  const loadSample = useCallback((sample) => {
+    setSource(sample.source)
+    simulate(sample.source, options, false)
+  }, [options, simulate])
+
+  const lastCycle = result ? result.snapshots.length - 1 : 0
+  const snapshot = result?.snapshots[Math.min(cycle, lastCycle)] ?? null
+
+  useEffect(() => {
+    if (!playing) return
+    if (cycle >= lastCycle) {
+      setPlaying(false)
+      return
+    }
+    const t = setTimeout(() => setCycle((c) => Math.min(c + 1, lastCycle)), speed)
+    return () => clearTimeout(t)
+  }, [playing, cycle, lastCycle, speed])
+
+  const stepForward = useCallback(() => { setPlaying(false); setCycle((c) => Math.min(c + 1, lastCycle)) }, [lastCycle])
+  const stepBack = useCallback(() => { setPlaying(false); setCycle((c) => Math.max(c - 1, 0)) }, [])
+  const reset = useCallback(() => { setPlaying(false); setCycle(0) }, [])
+  const toEnd = useCallback(() => { setPlaying(false); setCycle(lastCycle) }, [lastCycle])
+  const seek = useCallback((c) => setCycle(Math.max(0, Math.min(c, lastCycle))), [lastCycle])
+  const togglePlay = useCallback(() => {
+    if (playing) return setPlaying(false)
+    if (cycle >= lastCycle) setCycle(0)
+    setPlaying(true)
+  }, [playing, cycle, lastCycle])
+
+  return {
+    source, setSource, errors, dirty, assemble, loadSample, runError,
+    options, setOptions,
+    result, snapshot, cycle, lastCycle,
+    playing, speed, setSpeed,
+    stepForward, stepBack, reset, toEnd, seek, togglePlay,
+  }
 }

@@ -1,277 +1,136 @@
-import {useState, useEffect} from 'react';
-import {SAMPLES} from '../../shared/contracts.js';
-import {useSimulation} from './hooks/useSimulation.js';
-import PipelineDiagram from './components/PipelineDiagram.jsx';
-import TimingTable from './components/TimingTable.jsx';
-import StatePanels from './components/StatePanels.jsx';
-import TeammatePanel from './components/TeammatePanel.jsx';
-import AssemblyEditor from './components/AssemblyEditor.jsx';
+import { useEffect, useMemo, useState } from 'react'
+import { STAGES } from '@shared/constants.js'
+import { useSimulation } from './hooks/useSimulation.js'
+import { Header } from './components/Header.jsx'
+import { Controls } from './components/Controls.jsx'
+import { AssemblyEditor } from './components/AssemblyEditor.jsx'
+import { IsaReference } from './components/IsaReference.jsx'
+import { MetricsBar } from './components/MetricsBar.jsx'
+import { PipelineDiagram } from './components/PipelineDiagram.jsx'
+import { ParallelBoard } from './components/ParallelBoard.jsx'
+import { TimingGrid } from './components/TimingGrid.jsx'
+import { RegisterPanel, MemoryPanel, EventLog } from './components/StatePanels.jsx'
+import { Panel } from './components/ui.jsx'
+import TeammatePanel from './components/TeammatePanel.jsx'
+
+function useShortcuts(sim) {
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.target.closest('textarea, input, select') || e.metaKey || e.ctrlKey || e.altKey) return
+      const actions = {
+        ' ': sim.togglePlay,
+        ArrowRight: sim.stepForward,
+        ArrowLeft: sim.stepBack,
+        Home: sim.reset,
+        End: sim.toEnd,
+        f: () => sim.options.mode === 'pipeline' && sim.setOptions((o) => ({ ...o, forwarding: !o.forwarding })),
+      }
+      const action = actions[e.key]
+      if (!action) return
+      e.preventDefault()
+      action()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [sim])
+}
 
 export default function App() {
-  const [source, setSource] = useState(SAMPLES['Dependencies']);
-  const [forwarding, setForwarding] = useState(false);
-  const [showAiBots, setShowAiBots] = useState(true);
-  const [showInstructionSet, setShowInstructionSet] = useState(false);
-  const sim = useSimulation();
-  const s = sim.state;
+  const [showAiBots, setShowAiBots] = useState(false)
+  const sim = useSimulation()
+  const { result, snapshot } = sim
+  useShortcuts(sim)
 
-  // Sync initial load
-  useEffect(() => {
-    if (!s && source) {
-      sim.initialize(source, forwarding);
-    }
-  }, []);
-
-  function handleToggleForwarding() {
-    const nextFwd = !forwarding;
-    setForwarding(nextFwd);
-    sim.initialize(source, nextFwd);
-  }
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    function handleKeyDown(e) {
-      if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
-      if (e.code === 'Space') {
-        e.preventDefault();
-        if (sim.running) sim.pause();
-        else if (s && s.status !== 'completed' && !sim.busy) sim.run();
-      } else if (e.code === 'ArrowRight') {
-        e.preventDefault();
-        if (s && s.status !== 'completed' && !sim.busy && !sim.running) sim.step();
-      } else if (e.key === 'f' || e.key === 'F') {
-        handleToggleForwarding();
+  // Which source line sits in which stage right now — drives the editor gutter.
+  const stageByLine = useMemo(() => {
+    const map = new Map()
+    if (!result || !snapshot) return map
+    if (result.mode === 'pipeline') {
+      for (const s of STAGES) {
+        const slot = snapshot.stages[s]
+        if (slot && !slot.bubble) map.set(result.instructions[slot.id - 1].line, s)
       }
+    } else {
+      for (const id of snapshot.executing) map.set(result.instructions[id - 1].line, 'EX')
     }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [sim.running, sim.busy, s, forwarding, source]);
-
-  const completed = s?.statistics?.instructionsCompleted ?? 0;
-  const total = s?.program?.length ?? 5;
-  const stalls = s?.statistics?.stalls ?? 0;
-  const forwards = s?.statistics?.forwards ?? 0;
-  const currentCycle = s?.cycle ?? 0;
-  const cpi = s?.statistics?.cpi ? s.statistics.cpi.toFixed(2) : '—';
-  const projectedForwardingCycles = Math.max(currentCycle - stalls, total + 4);
-  const speedupVal = stalls > 0 && currentCycle > 0 
-    ? (currentCycle / projectedForwardingCycles).toFixed(2) + '×'
-    : '1.67×';
-
-  const scrubberPercent = Math.min(100, (currentCycle / Math.max(15, currentCycle)) * 100);
+    return map
+  }, [result, snapshot])
 
   return (
-    <>
-      {/* 1. Top Navigation Bar */}
-      <header className="top-navbar">
-        <div className="brand-section">
-          <div className="color-bars-icon">
-            <div className="color-bar bar-pink" />
-            <div className="color-bar bar-cyan" />
-            <div className="color-bar bar-green" />
-            <div className="color-bar bar-yellow" />
-          </div>
-          <div className="brand-text">
-            <h1>CPU Pipeline Simulator</h1>
-            <small>IF · ID · EX · MEM · WB — cycle-accurate, hazard aware</small>
-          </div>
-        </div>
+    <div className="app">
+      <Header options={sim.options} setOptions={sim.setOptions} engine={result?.engine} showAiBots={showAiBots} setShowAiBots={setShowAiBots} />
+      <Controls sim={sim} />
 
-        <div className="nav-actions">
-          <div className="mode-pills">
-            <button className="mode-pill active">5-Stage Pipeline</button>
-            <button className="mode-pill" style={{opacity: 0.5}} title="Future capability">Parallel Issue</button>
-          </div>
+      <main className="workspace">
+        <aside className="col col-left">
+          <AssemblyEditor sim={sim} stageByLine={stageByLine} />
+          <IsaReference />
+        </aside>
 
-          <div
-            className="forwarding-toggle-wrap"
-            onClick={handleToggleForwarding}
-            title={forwarding ? 'Hardware Data Forwarding Active (Click to disable)' : 'Enable Hardware Data Forwarding (Bypassing)'}
-          >
-            <div className={`switch ${forwarding ? 'on' : ''}`}>
-              <div className="switch-dot" />
-            </div>
-            <span>Forwarding {forwarding ? 'ON' : 'OFF'}</span>
-          </div>
+        {result && snapshot && (
+          <>
+            <section className="col col-center">
+              <MetricsBar result={result} snapshot={snapshot} />
+              {result.mode === 'pipeline' ? (
+                <Panel
+                  title="Pipeline datapath"
+                  meta={result.options.forwarding ? 'forwarding on · EX/MEM, MEM/WB → EX' : 'forwarding off · stall on RAW'}
+                  className="pipe-panel"
+                >
+                  <PipelineDiagram result={result} snapshot={snapshot} previous={result.snapshots[sim.cycle - 1]} speed={sim.speed} />
+                </Panel>
+              ) : (
+                <Panel title="Parallel issue" meta={result.options.issueWidth ? `${result.options.issueWidth}-wide` : 'unbounded width'} className="pipe-panel">
+                  <ParallelBoard result={result} snapshot={snapshot} />
+                </Panel>
+              )}
+              <TimingGrid result={result} cycle={sim.cycle} onSeek={sim.seek} />
 
-          <div className="engine-badge">
-            <div className="dot" />
-            <span>LOCAL ENGINE</span>
-          </div>
+              {showAiBots && (
+                <Panel title="Virtual AI Teammates" meta="Google Gemini 3.5 Flash Lite · Bot 1 & Bot 2">
+                  <TeammatePanel
+                    state={snapshot ? {
+                      sessionId: 'local',
+                      cycle: sim.cycle,
+                      status: sim.cycle >= (result?.snapshots.length - 1) ? 'completed' : 'running',
+                      program: result?.instructions.map(i => ({ id: i.id - 1, text: i.text, op: i.op })),
+                      events: (result?.snapshots.slice(0, sim.cycle + 1) || []).flatMap(s => s.events.map(e => ({
+                        cycle: s.cycle,
+                        type: e.kind === 'stall' ? 'RAW' : e.kind.toUpperCase(),
+                        register: e.reg || 'R1',
+                        reason: e.text
+                      }))),
+                      statistics: {
+                        stalls: snapshot.stalls,
+                        cpi: snapshot.completed ? (sim.cycle / snapshot.completed) : 1,
+                        instructionsCompleted: snapshot.completed
+                      }
+                    } : null}
+                    onLoad={(code) => {
+                      sim.setSource(code)
+                      sim.assemble()
+                    }}
+                  />
+                </Panel>
+              )}
+            </section>
 
-          <button
-            className={`mode-pill ai-toggle-pill ${showAiBots ? 'active' : ''}`}
-            onClick={() => setShowAiBots(!showAiBots)}
-          >
-            ✨ AI Teammates
-          </button>
-        </div>
-      </header>
-
-      {/* 2. Top Control Bar */}
-      <div className="control-bar">
-        <div className="btn-group">
-          <button
-            className="icon-btn"
-            title="Reset Simulation (↺)"
-            disabled={!s || sim.busy || sim.running}
-            onClick={() => sim.reset(forwarding)}
-          >
-            ↺
-          </button>
-          <button
-            className="icon-btn"
-            title="Step backward (History)"
-            disabled
-          >
-            |◀
-          </button>
-          {sim.running ? (
-            <button className="btn-run" onClick={sim.pause} style={{background: '#f59e0b'}}>
-              <span>Ⅱ</span> Pause
-            </button>
-          ) : (
-            <button
-              className="btn-run"
-              disabled={!s || sim.busy || s.status === 'completed'}
-              onClick={sim.run}
-            >
-              <span>▶</span> Run
-            </button>
-          )}
-          <button
-            className="btn-step"
-            disabled={!s || sim.busy || sim.running || s.status === 'completed'}
-            onClick={sim.step}
-          >
-            <span>▷|</span> Step
-          </button>
-          <button
-            className="icon-btn"
-            title="Run to end"
-            disabled={!s || sim.busy || s.status === 'completed'}
-            onClick={() => sim.run()}
-          >
-            ▶▶
-          </button>
-        </div>
-
-        {/* Center: Cycle Digital Indicator & Scrubber */}
-        <div className="cycle-display-wrap">
-          <div className="cycle-indicator">
-            <span>CYCLE</span>
-            <strong>{String(currentCycle).padStart(2, '0')}</strong>
-            <span>/ {Math.max(15, currentCycle)}</span>
-            <span style={{color: '#a3e635', fontSize: '10px'}}>◼</span>
-          </div>
-
-          <div className="cycle-scrubber-track">
-            <div
-              className="cycle-scrubber-fill"
-              style={{width: `${scrubberPercent}%`}}
-            />
-          </div>
-        </div>
-
-        {/* Right: Speed Selector */}
-        <div className="speed-control">
-          <span>Speed</span>
-          <div className="speed-pills">
-            {[
-              {label: '0.5×', val: 1000},
-              {label: '1×', val: 500},
-              {label: '2×', val: 250},
-              {label: '4×', val: 120}
-            ].map(sp => (
-              <button
-                key={sp.label}
-                className={`speed-pill ${sim.speed === sp.val ? 'active' : ''}`}
-                onClick={() => sim.setSpeed(sp.val)}
-              >
-                {sp.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Three-Column Main Dashboard Workspace */}
-      <main className="dashboard-grid">
-        {/* LEFT COLUMN: Enhanced Assembly Code Editor */}
-        <AssemblyEditor
-          source={source}
-          onChange={setSource}
-          onInitialize={(code) => sim.initialize(code || source, forwarding)}
-          disabled={sim.running || sim.busy}
-          state={s}
-        />
-
-        {/* MIDDLE COLUMN: Metrics, Datapath & Timing Grid */}
-        <section className="col-panel workbench-col">
-          {/* Top 5 Metrics Row */}
-          <div className="metrics-row">
-            <div className="metric-card">
-              <div className="metric-card-label">RETIRED</div>
-              <div className="metric-card-val">{completed} / {total}</div>
-              <div className="metric-card-sub">instructions completed</div>
-            </div>
-
-            <div className="metric-card">
-              <div className="metric-card-label">CPI</div>
-              <div className="metric-card-val">{cpi}</div>
-              <div className="metric-card-sub">{s?.status === 'completed' ? 'final metric' : 'provisional'}</div>
-            </div>
-
-            <div className="metric-card">
-              <div className="metric-card-label">STALLS</div>
-              <div className="metric-card-val">{stalls}</div>
-              <div className="metric-card-sub">{forwarding ? 'load-use stalls' : 'stall cycles (RAW)'}</div>
-            </div>
-
-            <div className="metric-card">
-              <div className="metric-card-label">FORWARDS</div>
-              <div className="metric-card-val" style={{color: forwards > 0 ? '#10b981' : 'inherit'}}>{forwards}</div>
-              <div className="metric-card-sub">{forwarding ? 'hardware bypasses' : 'forwarding off'}</div>
-            </div>
-
-            <div className="metric-card speedup">
-              <div className="metric-card-label">SPEEDUP</div>
-              <div className="metric-card-val">{forwarding ? (stalls === 0 ? '1.55×' : '1.30×') : speedupVal}</div>
-              <div className="metric-card-sub">{forwarding ? 'bypassing active' : `${projectedForwardingCycles} cycles with forwarding`}</div>
-            </div>
-          </div>
-
-          {/* 5-Stage Animated Datapath */}
-          <PipelineDiagram state={s} running={sim.running} forwarding={forwarding} />
-
-          {/* Timing Diagram Table */}
-          <TimingTable state={s} />
-
-          {/* AI Teammates Bots Drawer (Collapsible) */}
-          {showAiBots && (
-            <TeammatePanel state={s} disabled={sim.running || sim.busy} onLoad={(code) => {
-              setSource(code);
-              sim.initialize(code, forwarding);
-            }} />
-          )}
-        </section>
-
-        {/* RIGHT COLUMN: Registers, Memory & Event Log */}
-        <StatePanels state={s} />
+            <aside className="col col-right">
+              <RegisterPanel result={result} snapshot={snapshot} />
+              <MemoryPanel snapshot={snapshot} />
+              <EventLog result={result} cycle={sim.cycle} />
+            </aside>
+          </>
+        )}
       </main>
 
-      {/* 4. Bottom Keyboard Shortcuts Bar */}
-      <footer className="footer-shortcuts">
-        <div>
-          <span className="shortcut-item"><span className="shortcut-key">Space</span> run/pause</span>
-          <span className="shortcut-item"><span className="shortcut-key">→</span> step</span>
-          <span className="shortcut-item"><span className="shortcut-key">F</span> toggle forwarding</span>
-          <span className="shortcut-item"><span className="shortcut-key">Reload ↩</span> assemble</span>
-        </div>
-        <div style={{color: '#64748b'}}>
-          COA 5-Stage Pipeline Simulator · Single Issue · WB-before-ID · In-Order
-        </div>
+      <footer className="statusbar">
+        <span><kbd>Space</kbd> run/pause</span>
+        <span><kbd>←</kbd><kbd>→</kbd> step</span>
+        <span><kbd>Home</kbd><kbd>End</kbd> jump</span>
+        <span><kbd>F</kbd> forwarding</span>
+        <span><kbd>⌘↵</kbd> assemble</span>
       </footer>
-    </>
-  );
+    </div>
+  )
 }
