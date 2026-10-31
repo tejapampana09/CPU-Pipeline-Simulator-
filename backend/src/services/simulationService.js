@@ -11,9 +11,9 @@ export function createService(){
  function save(s){s.updatedAt=Date.now();sessions.set(s.sessionId,s);return s;}
  return {
  get,
- create(source){clean();if(sessions.size>=LIMITS.sessions)throw fail('Session capacity reached.','CAPACITY',503);return save({...createMachine(parse(source)),sessionId:randomUUID()});},
+ create(source, options = {}){clean();if(sessions.size>=LIMITS.sessions)throw fail('Session capacity reached.','CAPACITY',503);return save({...createMachine(parse(source), options),sessionId:randomUUID()});},
  step(id){return save(step(get(id)));},
- reset(id){const s=get(id);return save({...createMachine(s.program),sessionId:id});},
+ reset(id, options = {}){const s=get(id);const fwd = options?.forwarding !== undefined ? Boolean(options.forwarding) : Boolean(s.forwarding);return save({...createMachine(s.program, {forwarding: fwd}),sessionId:id});},
  remove(id){get(id);sessions.delete(id);},
  run(id,maxCycles=200){if(!Number.isInteger(maxCycles)||maxCycles<1||maxCycles>5000)throw fail('maxCycles must be 1–5000.');let s=get(id),count=0;while(s.status!=='completed'&&count<maxCycles){s=step(s);count++;}save(s);return {state:s,runCycles:count,stopReason:s.status==='completed'?'completed':'budget'};}
  };

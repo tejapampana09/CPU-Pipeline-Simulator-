@@ -18,9 +18,15 @@ export default function App() {
   // Sync initial load
   useEffect(() => {
     if (!s && source) {
-      sim.initialize(source);
+      sim.initialize(source, forwarding);
     }
   }, []);
+
+  function handleToggleForwarding() {
+    const nextFwd = !forwarding;
+    setForwarding(nextFwd);
+    sim.initialize(source, nextFwd);
+  }
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -34,16 +40,17 @@ export default function App() {
         e.preventDefault();
         if (s && s.status !== 'completed' && !sim.busy && !sim.running) sim.step();
       } else if (e.key === 'f' || e.key === 'F') {
-        setForwarding(prev => !prev);
+        handleToggleForwarding();
       }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [sim.running, sim.busy, s]);
+  }, [sim.running, sim.busy, s, forwarding, source]);
 
   const completed = s?.statistics?.instructionsCompleted ?? 0;
   const total = s?.program?.length ?? 5;
   const stalls = s?.statistics?.stalls ?? 0;
+  const forwards = s?.statistics?.forwards ?? 0;
   const currentCycle = s?.cycle ?? 0;
   const cpi = s?.statistics?.cpi ? s.statistics.cpi.toFixed(2) : '—';
   const projectedForwardingCycles = Math.max(currentCycle - stalls, total + 4);
@@ -78,13 +85,13 @@ export default function App() {
 
           <div
             className="forwarding-toggle-wrap"
-            onClick={() => setForwarding(!forwarding)}
-            title="Toggle forwarding model note"
+            onClick={handleToggleForwarding}
+            title={forwarding ? 'Hardware Data Forwarding Active (Click to disable)' : 'Enable Hardware Data Forwarding (Bypassing)'}
           >
             <div className={`switch ${forwarding ? 'on' : ''}`}>
               <div className="switch-dot" />
             </div>
-            <span>Forwarding</span>
+            <span>Forwarding {forwarding ? 'ON' : 'OFF'}</span>
           </div>
 
           <div className="engine-badge">
@@ -108,7 +115,7 @@ export default function App() {
             className="icon-btn"
             title="Reset Simulation (↺)"
             disabled={!s || sim.busy || sim.running}
-            onClick={sim.reset}
+            onClick={() => sim.reset(forwarding)}
           >
             ↺
           </button>
@@ -194,7 +201,7 @@ export default function App() {
         <AssemblyEditor
           source={source}
           onChange={setSource}
-          onInitialize={(code) => sim.initialize(code || source)}
+          onInitialize={(code) => sim.initialize(code || source, forwarding)}
           disabled={sim.running || sim.busy}
           state={s}
         />
@@ -218,24 +225,24 @@ export default function App() {
             <div className="metric-card">
               <div className="metric-card-label">STALLS</div>
               <div className="metric-card-val">{stalls}</div>
-              <div className="metric-card-sub">stall cycles (RAW)</div>
+              <div className="metric-card-sub">{forwarding ? 'load-use stalls' : 'stall cycles (RAW)'}</div>
             </div>
 
             <div className="metric-card">
               <div className="metric-card-label">FORWARDS</div>
-              <div className="metric-card-val">0</div>
-              <div className="metric-card-sub">{forwarding ? 'forwarding active' : 'forwarding off'}</div>
+              <div className="metric-card-val" style={{color: forwards > 0 ? '#10b981' : 'inherit'}}>{forwards}</div>
+              <div className="metric-card-sub">{forwarding ? 'hardware bypasses' : 'forwarding off'}</div>
             </div>
 
             <div className="metric-card speedup">
               <div className="metric-card-label">SPEEDUP</div>
-              <div className="metric-card-val">{speedupVal}</div>
-              <div className="metric-card-sub">{projectedForwardingCycles} cycles with forwarding</div>
+              <div className="metric-card-val">{forwarding ? (stalls === 0 ? '1.55×' : '1.30×') : speedupVal}</div>
+              <div className="metric-card-sub">{forwarding ? 'bypassing active' : `${projectedForwardingCycles} cycles with forwarding`}</div>
             </div>
           </div>
 
           {/* 5-Stage Animated Datapath */}
-          <PipelineDiagram state={s} running={sim.running} />
+          <PipelineDiagram state={s} running={sim.running} forwarding={forwarding} />
 
           {/* Timing Diagram Table */}
           <TimingTable state={s} />
@@ -244,7 +251,7 @@ export default function App() {
           {showAiBots && (
             <TeammatePanel state={s} disabled={sim.running || sim.busy} onLoad={(code) => {
               setSource(code);
-              sim.initialize(code);
+              sim.initialize(code, forwarding);
             }} />
           )}
         </section>

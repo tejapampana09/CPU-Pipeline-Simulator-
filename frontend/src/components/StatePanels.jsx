@@ -115,9 +115,9 @@ export default function StatePanels({state}) {
           {events.map((e, idx) => (
             <div key={idx} className="event-entry">
               <span className="event-cycle">{String(e.cycle).padStart(2, '0')}</span>
-              <span className="event-type raw">{e.type}</span>
+              <span className={`event-type ${e.type?.toLowerCase() || 'raw'}`}>{e.type}</span>
               <span className="event-text">
-                <strong style={{color: '#0f172a', fontWeight: 800}}>{e.register}</strong> · {e.reason}
+                <strong style={{color: e.type === 'FORWARD' ? '#16a34a' : '#0f172a', fontWeight: 800}}>{e.register}</strong> · {e.reason}
               </span>
             </div>
           ))}
