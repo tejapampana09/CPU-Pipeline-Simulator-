@@ -48,14 +48,21 @@ export function teammateRoutes(service) {
   // AI-powered Pipeline Explainer and Optimizer (Bot 2)
   r.post(['/ai-explain', '/bot2/explain'], async (req, res, next) => {
     try {
+      let sessionState = req.body?.sessionState;
       const sessionId = req.body?.sessionId;
-      if (!sessionId) {
+      if (!sessionState && sessionId) {
+        try {
+          sessionState = service.get(sessionId);
+        } catch {
+          // not found in in-memory session table
+        }
+      }
+      if (!sessionState) {
         return res.status(400).json({
           success: false,
-          error: {code: 'INVALID_SESSION', message: 'sessionId is required.'}
+          error: {code: 'INVALID_SESSION', message: 'Valid sessionState or sessionId is required.'}
         });
       }
-      const sessionState = service.get(sessionId);
       const data = await explainPipelineAi({sessionState});
       res.json({success: true, data});
     } catch (err) {
@@ -65,7 +72,22 @@ export function teammateRoutes(service) {
 
   // Deterministic Sequential Reference Verification (Bot 2 Offline)
   r.post(['/review', '/bot2/review'], (req, res) => {
-    res.json({success: true, data: verifyPipelineSequentially(service.get(req.body?.sessionId))});
+    let sessionState = req.body?.sessionState;
+    const sessionId = req.body?.sessionId;
+    if (!sessionState && sessionId) {
+      try {
+        sessionState = service.get(sessionId);
+      } catch {
+        // not found in in-memory session table
+      }
+    }
+    if (!sessionState) {
+      return res.status(400).json({
+        success: false,
+        error: {code: 'INVALID_SESSION', message: 'Valid sessionState or sessionId is required.'}
+      });
+    }
+    res.json({success: true, data: verifyPipelineSequentially(sessionState)});
   });
 
   return r;

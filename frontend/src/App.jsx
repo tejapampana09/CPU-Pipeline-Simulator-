@@ -93,17 +93,37 @@ export default function App() {
                       sessionId: 'local',
                       cycle: sim.cycle,
                       status: sim.cycle >= (result?.snapshots.length - 1) ? 'completed' : 'running',
-                      program: result?.instructions.map(i => ({ id: i.id - 1, text: i.text, op: i.op })),
-                      events: (result?.snapshots.slice(0, sim.cycle + 1) || []).flatMap(s => s.events.map(e => ({
-                        cycle: s.cycle,
-                        type: e.kind === 'stall' ? 'RAW' : e.kind.toUpperCase(),
-                        register: e.reg || 'R1',
-                        reason: e.text
-                      }))),
+                      program: result?.instructions.map(i => ({
+                        id: i.id - 1,
+                        line: i.line,
+                        pc: i.id - 1,
+                        op: i.op,
+                        args: i.operands || [],
+                        text: i.text
+                      })),
+                      registers: snapshot.registers || {},
+                      memory: snapshot.memory || {},
+                      events: (result?.snapshots.slice(0, sim.cycle + 1) || []).flatMap(s =>
+                        (s.hazards && s.hazards.length > 0)
+                          ? s.hazards.map(h => ({
+                              cycle: s.cycle,
+                              type: 'RAW',
+                              register: h.reg,
+                              producerId: h.producer - 1,
+                              consumerId: h.consumer - 1,
+                              reason: `#${h.consumer} stalls in ID — needs ${h.reg} from #${h.producer}`
+                            }))
+                          : s.events.filter(e => e.kind === 'stall').map(e => ({
+                              cycle: s.cycle,
+                              type: 'RAW',
+                              register: 'R1',
+                              reason: e.text
+                            }))
+                      ),
                       statistics: {
-                        stalls: snapshot.stalls,
+                        stalls: snapshot.stalls ?? 0,
                         cpi: snapshot.completed ? (sim.cycle / snapshot.completed) : 1,
-                        instructionsCompleted: snapshot.completed
+                        instructionsCompleted: snapshot.completed ?? 0
                       }
                     } : null}
                     onLoad={(code) => {
