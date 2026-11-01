@@ -69,7 +69,8 @@ export function parseProgram(source) {
     }
 
     const inst = { id: instructions.length + 1, line, op, operands, text: `${op} ${operands.join(', ')}` }
-    if (op === 'LOAD' || op === 'LI') Object.assign(inst, { dest: operands[0], srcs: [], imm: operands[1] })
+    if (op === 'LI') Object.assign(inst, { dest: operands[0], srcs: [], imm: operands[1] })
+    else if (op === 'LOAD') Object.assign(inst, { dest: operands[0], srcs: [], addr: operands[1], imm: operands[1] })
     else if (op === 'STORE') Object.assign(inst, { dest: null, srcs: [operands[0]], addr: operands[1] })
     else if (op === 'OUT') Object.assign(inst, { dest: null, srcs: [operands[0]] })
     else Object.assign(inst, { dest: operands[0], srcs: [...new Set([operands[1], operands[2]])] })
@@ -94,10 +95,17 @@ const ALU = {
  */
 export function evaluate(instructions) {
   const regs = zeroRegisters()
+  const memory = {}
   for (const inst of instructions) {
-    if (inst.op === 'LOAD' || inst.op === 'LI') {
+    if (inst.op === 'LI') {
       inst.value = inst.imm | 0
       inst.note = `${inst.dest} ← ${inst.value}`
+      regs[inst.dest] = inst.value
+    } else if (inst.op === 'LOAD') {
+      const addr = inst.addr ?? inst.imm
+      const hasStored = Object.prototype.hasOwnProperty.call(memory, addr)
+      inst.value = hasStored ? (memory[addr] | 0) : ((inst.imm ?? 0) | 0)
+      inst.note = hasStored ? `${inst.dest} ← MEM[${addr}] (${inst.value})` : `${inst.dest} ← ${inst.value}`
       regs[inst.dest] = inst.value
     } else if (ALU[inst.op]) {
       const [, rs, rt] = inst.operands
@@ -109,6 +117,7 @@ export function evaluate(instructions) {
       regs[inst.dest] = inst.value
     } else if (inst.op === 'STORE') {
       inst.value = regs[inst.srcs[0]]
+      memory[inst.addr] = inst.value
       inst.note = `MEM[${inst.addr}] ← ${inst.value}`
     } else if (inst.op === 'OUT') {
       inst.value = regs[inst.srcs[0]]

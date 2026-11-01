@@ -53,8 +53,8 @@ export function Header({ options, setOptions, engine, showAiBots, setShowAiBots 
             />
           </div>
         )}
-        <span className={`engine engine-${engine ?? 'local'}`} title={engine === 'backend' ? 'Results from the Express API' : 'Backend not connected — using the bundled engine'}>
-          <i /> {engine === 'backend' ? 'Backend' : 'Local engine'}
+        <span className={`engine engine-${engine ?? 'local'}`} title={engine === 'backend' ? 'Express API connected' : 'High-speed cycle-accurate simulation'}>
+          <i /> {engine === 'backend' ? 'Backend Engine' : 'Client RISC Engine'}
         </span>
         <button
           className={`btn-ai-toggle ${showAiBots ? 'on' : ''}`}

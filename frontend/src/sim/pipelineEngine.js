@@ -42,6 +42,8 @@ export function simulatePipeline(instructions, { forwarding = false } = {}) {
 
     // Hazard detection: without forwarding, the instruction in ID must wait until
     // every producer it depends on has reached WB.
+    // With forwarding, ALU-to-ALU dependencies have 0 stalls, but Load-Use dependencies
+    // (producer in EX is a LOAD) require a 1-cycle bubble because memory read happens in MEM.
     const decoding = real(occ.ID)
     if (decoding && !forwarding) {
       for (const reg of byId(decoding.id).srcs) {
@@ -53,6 +55,20 @@ export function simulatePipeline(instructions, { forwarding = false } = {}) {
           }
         }
       }
+    } else if (decoding && forwarding) {
+      const exSlot = real(occ.EX)
+      if (exSlot) {
+        const exInst = byId(exSlot.id)
+        if (exInst.op === 'LOAD' && exInst.dest && byId(decoding.id).srcs.includes(exInst.dest)) {
+          hazards.push({
+            reg: exInst.dest,
+            consumer: decoding.id,
+            producer: exInst.id,
+            producerStage: 'MEM',
+            isLoadUse: true
+          })
+        }
+      }
     }
 
     if (hazards.length) {
@@ -61,7 +77,12 @@ export function simulatePipeline(instructions, { forwarding = false } = {}) {
       next.IF = occ.IF ? { id: occ.IF.id, stalled: true } : null
       totalStalls++
       for (const h of hazards) {
-        events.push({ kind: 'stall', text: `#${h.consumer} stalls in ID — needs ${h.reg} from #${h.producer}` })
+        events.push({
+          kind: 'stall',
+          text: h.isLoadUse
+            ? `#${h.consumer} load-use stall in ID — waiting for #${h.producer} to read memory in MEM`
+            : `#${h.consumer} stalls in ID — needs ${h.reg} from #${h.producer}`
+        })
       }
     } else {
       next.EX = occ.ID ? { id: occ.ID.id } : null
@@ -90,11 +111,18 @@ export function simulatePipeline(instructions, { forwarding = false } = {}) {
     const changedRegs = []
     const changedMem = []
     const memSlot = real(next.MEM)
-    if (memSlot && byId(memSlot.id).op === 'STORE') {
+    if (memSlot) {
       const inst = byId(memSlot.id)
-      memory = { ...memory, [inst.addr]: inst.value }
-      changedMem.push(inst.addr)
-      events.push({ kind: 'mem', text: `MEM[${inst.addr}] ← ${inst.value}  (#${inst.id})` })
+      if (inst.op === 'STORE') {
+        memory = { ...memory, [inst.addr]: inst.value }
+        changedMem.push(inst.addr)
+        events.push({ kind: 'mem', text: `MEM[${inst.addr}] ← ${inst.value}  (#${inst.id})` })
+      } else if (inst.op === 'LOAD') {
+        const addr = inst.addr ?? inst.imm
+        const val = Object.prototype.hasOwnProperty.call(memory, addr) ? memory[addr] : inst.value
+        inst.value = val
+        events.push({ kind: 'mem', text: `MEM[${addr}] → ${val}  (#${inst.id})` })
+      }
     }
 
     const wbSlot = real(next.WB)

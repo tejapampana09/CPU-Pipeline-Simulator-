@@ -9,10 +9,14 @@ function stageAction(inst, stage, stalled) {
     case 'ID': return stalled ? `waiting on ${inst.srcs.join(', ')}` : inst.srcs.length ? `read ${inst.srcs.join(', ')}` : 'decode immediate'
     case 'EX':
       if (inst.sym) return `${inst.a} ${inst.sym} ${inst.b} = ${inst.value}`
-      if (inst.op === 'LOAD' || inst.op === 'LI') return `imm → ${inst.value}`
+      if (inst.op === 'LI') return `imm → ${inst.value}`
+      if (inst.op === 'LOAD') return `addr = ${inst.addr ?? inst.imm}`
       if (inst.op === 'STORE') return `addr = ${inst.addr}`
       return `pass ${inst.srcs[0]}`
-    case 'MEM': return inst.op === 'STORE' ? `MEM[${inst.addr}] ← ${inst.value}` : 'no access'
+    case 'MEM':
+      if (inst.op === 'STORE') return `MEM[${inst.addr}] ← ${inst.value}`
+      if (inst.op === 'LOAD') return `MEM[${inst.addr ?? inst.imm}] → ${inst.value}`
+      return 'no access'
     case 'WB':
       if (inst.dest) return `${inst.dest} ← ${inst.value}`
       if (inst.op === 'OUT') return `out ${inst.value}`
