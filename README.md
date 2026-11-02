@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-Visit **http://localhost:5173**. Vite proxies `/api` to Express at port 3000. Both servers run from one command; Ctrl+C stops them. Initial dependency installation requires internet. After installation, the app and bots require no network or API keys. If PowerShell blocks npm.ps1, use Command Prompt or run `npm.cmd` instead of `npm`.
+Visit **http://localhost:5173**. Vite proxies `/api` to Express at port 3000. Both servers run from one command; Ctrl+C stops them. Initial dependency installation requires internet. The Express backend must run for simulation. Offline bot templates and verification require no API key; Gemini generation/explanation requires a configured key and network access. If PowerShell blocks npm.ps1, use Command Prompt or run `npm.cmd` instead of `npm`.
 
 Production-style local run:
 
@@ -53,7 +53,7 @@ If your faculty specifically requires generative AI, an additional backend provi
 
 A snapshot shows stage occupancy **after** a transition. Cycle 1 places the first instruction in IF. The instruction moves to ID at cycle 2, EX at 3, MEM at 4, WB at 5, and commits when it leaves WB at cycle 6. Completion includes draining all stages. Thus an independent N-instruction program takes **N+5 displayed transitions** in this implementation. Textbooks counting WB completion in its occupancy cycle commonly use N+4; these are different counting conventions, not directly comparable cycle numbers.
 
-WB commits before ID reads during a transition. Producers currently in EX or MEM block dependent ID instructions; IF and PC freeze, and EX receives a bubble. A producer currently in WB does not block ID. Count one stall per stalled cycle, even when two source registers create two hazard events. Memory reads/writes occur when the old MEM token exits. Uninitialized memory reads zero. R0 is writable. Arithmetic wraps to signed 32 bits. There are no branches, forwarding, caches, exceptions, superscalar issue or out-of-order execution.
+WB commits before ID reads during a transition. Producers currently in EX or MEM block dependent ID instructions; IF and PC freeze, and EX receives a bubble. A producer currently in WB does not block ID. Count one stall per stalled cycle, even when two source registers create two hazard events. Memory reads/writes occur when the old MEM token exits. Uninitialized memory reads zero. R0 is writable. Arithmetic wraps to signed 32 bits. Forwarding can be enabled, retaining one load-use stall. Parallel mode offers dependency-scheduled single-cycle issue with bounded or unbounded width; it is not a cycle-accurate superscalar processor. There are no branches, caches or processor exceptions.
 
 ## Demo
 
@@ -77,3 +77,7 @@ WB commits before ID reads during a transition. Producers currently in EX or MEM
 ## Limitations
 
 Sessions expire after two hours without mutation and disappear on backend restart. Maximum 100 sessions, 200 instructions, 5000 cycles per session, 40 KB JSON request body. This is a local educational app without accounts or public multi-user security. Pause stops scheduling new steps; an already in-flight Step may finish once. Browser layout/interaction needs the manual checklist in `docs/TESTING.md`; the delivered automated checks cover the engine, API, agents, and frontend compilation.
+
+## Authoritative simulation
+
+Both execution modes run in the backend. The browser validates through the shared parser and renders server traces. Supported instructions: LI, LOAD, STORE, ADD, SUB, MUL, AND, OR, OUT. Memory contains 1024 zero-initialized words. See docs/ARCHITECTURE.md and docs/API.md for trace playback, session lifecycle and teammate status details.

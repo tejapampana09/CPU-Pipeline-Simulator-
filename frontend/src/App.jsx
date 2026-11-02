@@ -80,55 +80,18 @@ export default function App() {
                   <PipelineDiagram result={result} snapshot={snapshot} previous={result.snapshots[sim.cycle - 1]} speed={sim.speed} />
                 </Panel>
               ) : (
-                <Panel title="Parallel issue" meta={result.options.issueWidth ? `${result.options.issueWidth}-wide` : 'unbounded width'} className="pipe-panel">
+                <Panel title="Parallel issue" meta={`${result.options.issueWidth || 'unbounded'} width · dependency scheduling model`} className="pipe-panel">
                   <ParallelBoard result={result} snapshot={snapshot} />
                 </Panel>
               )}
               <TimingGrid result={result} cycle={sim.cycle} onSeek={sim.seek} />
 
               {showAiBots && (
-                <Panel title="Virtual AI Teammates" meta="Google Gemini 3.5 Flash Lite · Bot 1 & Bot 2">
+                <Panel title="Virtual AI Teammates" meta="Assembly Architect · Pipeline Reviewer">
                   <TeammatePanel
-                    state={snapshot ? {
-                      sessionId: 'local',
-                      cycle: sim.cycle,
-                      status: sim.cycle >= (result?.snapshots.length - 1) ? 'completed' : 'running',
-                      program: result?.instructions.map(i => ({
-                        id: i.id - 1,
-                        line: i.line,
-                        pc: i.id - 1,
-                        op: i.op,
-                        args: i.operands || [],
-                        text: i.text
-                      })),
-                      registers: snapshot.registers || {},
-                      memory: snapshot.memory || {},
-                      events: (result?.snapshots.slice(0, sim.cycle + 1) || []).flatMap(s =>
-                        (s.hazards && s.hazards.length > 0)
-                          ? s.hazards.map(h => ({
-                              cycle: s.cycle,
-                              type: 'RAW',
-                              register: h.reg,
-                              producerId: h.producer - 1,
-                              consumerId: h.consumer - 1,
-                              reason: `#${h.consumer} stalls in ID — needs ${h.reg} from #${h.producer}`
-                            }))
-                          : s.events.filter(e => e.kind === 'stall').map(e => ({
-                              cycle: s.cycle,
-                              type: 'RAW',
-                              register: 'R1',
-                              reason: e.text
-                            }))
-                      ),
-                      statistics: {
-                        stalls: snapshot.stalls ?? 0,
-                        cpi: snapshot.completed ? (sim.cycle / snapshot.completed) : 1,
-                        instructionsCompleted: snapshot.completed ?? 0
-                      }
-                    } : null}
+                    state={{sessionId:result.sessionId,cycle:sim.cycle,status:sim.cycle===result.summary.cycles?'completed':'paused'}}
                     onLoad={(code) => {
-                      sim.setSource(code)
-                      sim.assemble()
+                      sim.assemble(code)
                     }}
                   />
                 </Panel>

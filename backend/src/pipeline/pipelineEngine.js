@@ -8,7 +8,7 @@ export function step(state){
  if(state.status==='completed')return state;
  if(state.cycle>=LIMITS.cycles)throw fail('Session cycle limit reached. Reset to continue.','CYCLE_LIMIT',409);
  const s=structuredClone(state),old=s.pipeline; s.cycle++;s.status='paused';
- if(old.WB){if(old.WB.dst)s.registers[old.WB.dst]=old.WB.result|0;s.statistics.instructionsCompleted++;}
+ if(old.WB){if(old.WB.dst)s.registers[old.WB.dst]=old.WB.result|0;if(old.WB.op==='OUT')s.output.push({cycle:s.cycle,id:old.WB.id+1,reg:old.WB.args[0],value:old.WB.result});s.statistics.instructionsCompleted++;}
  const forwarding=Boolean(s.forwarding);
  const hazards=detectHazards(old, forwarding);
  const next={IF:null,ID:null,EX:null,MEM:null,WB:null};

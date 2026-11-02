@@ -66,7 +66,7 @@ function cardsFor(snapshot, previous) {
 }
 
 export function PipelineDiagram({ result, snapshot, previous, speed }) {
-  const byId = (id) => result.instructions[id - 1]
+  const byId = (id) => ({...result.instructions[id - 1],...snapshot.details?.[id]})
   const links = [
     ...snapshot.hazards.map((h) => ({ from: h.producerStage, to: 'ID', label: `RAW ${h.reg}`, kind: 'stall' })),
     ...snapshot.forwards.map((f) => ({ from: f.from, to: 'EX', label: `${f.reg} ⇢ EX`, kind: 'fwd' })),

@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {simulate} from '../frontend/src/sim/index.js';
+import {parse} from '../shared/parser.js';
+import {buildTrace} from '../backend/src/services/traceService.js';
+import {createMachine} from '../backend/src/cpu/machine.js';
+const simulate=(source,options)=>buildTrace(createMachine(parse(source),options));
 
 test('Parallel Issue: unbounded issue executes independent instructions in 1 cycle', () => {
   const code = [

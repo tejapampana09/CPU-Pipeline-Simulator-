@@ -15,3 +15,7 @@
 Shared contract changes in shared/contracts.js must be coordinated by Members 1, 2, 3 and 7. Member 5 owns bot UI integration and Member 7 owns bot API tests. The bots are application features; human members remain responsible for the implementation and review.
 
 Suggested integration sequence: parser + CPU → pipeline + hazards → API → frontend + visualization → bots → full regression + demo. Use individual branches; run npm test and npm run build before integration. Forwarding is a future feature and must be added with new timing/hazard tests, documentation and explicit UI mode selection.
+
+## Architecture update
+
+Both pipeline and parallel execution are backend authoritative. The shared parser and canonical ISA support MUL and OUT, 8 writable signed registers and 1024 zero-initialized memory words. Parallel mode is a dependency scheduler with register, memory and output ordering, not a cycle-accurate superscalar processor. The UI plays backend snapshots. Both teammates remain; fallback status is explicit and forwarding speedup uses measured simulator runs. See ARCHITECTURE.md and TESTING.md for current behavior.

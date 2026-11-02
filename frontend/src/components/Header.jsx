@@ -20,7 +20,7 @@ export function Header({ options, setOptions, engine, showAiBots, setShowAiBots 
         <BrandMark />
         <div>
           <div className="brand-title">CPU Pipeline Simulator</div>
-          <div className="brand-sub">IF · ID · EX · MEM · WB — cycle-accurate, hazard aware</div>
+          <div className="brand-sub">{options.mode === 'parallel' ? 'Dependency scheduling · single-cycle issue model' : 'IF · ID · EX · MEM · WB · hazard aware'}</div>
         </div>
       </div>
 
@@ -53,13 +53,13 @@ export function Header({ options, setOptions, engine, showAiBots, setShowAiBots 
             />
           </div>
         )}
-        <span className={`engine engine-${engine ?? 'local'}`} title={engine === 'backend' ? 'Express API connected' : 'High-speed cycle-accurate simulation'}>
-          <i /> {engine === 'backend' ? 'Backend Engine' : 'Client RISC Engine'}
+        <span className={`engine engine-${engine ?? 'pending'}`} title={engine === 'backend' ? 'Express API connected' : 'Waiting for Express API'}>
+          <i /> {engine === 'backend' ? 'Backend Engine' : 'Connecting to backend'}
         </span>
         <button
           className={`btn-ai-toggle ${showAiBots ? 'on' : ''}`}
           onClick={() => setShowAiBots(!showAiBots)}
-          title="Toggle Gemini 3.5 Virtual AI Teammates (Bot 1 & Bot 2)"
+          title="Toggle Assembly Architect and Pipeline Reviewer"
         >
           ✨ AI Teammates
         </button>

@@ -1,21 +1,9 @@
-# Verification
+# Testing
 
-Run `npm ci`, `npm test`, `npm run build` from the project root.
+Run `npm ci`, `npm test`, and `npm run build` from the repository root.
 
-Automated suite: 15 tests across core.test.js and api.test.js. Covers parser normalization/errors/ranges; immutable steps; independent-cycle count; RAW hold/bubble/release; document sample; LOAD/STORE dependencies; signed wrap and writable R0; multiple producers; completion; pending/failing reviews; bot cooperation; 100 seeded random programs compared against the independent sequential interpreter; health and all simulation lifecycle endpoints; malformed input; cycle budgets; session isolation.
+The suite registers 38 tests across seven files. Coverage includes canonical parser and range parity, signed arithmetic, MUL/OUT, default-zero LOAD, forwarding on/off and load-use stalls, lifecycle/trace API, selected-cycle review, forged snapshot rejection, parallel RAW/WAR/WAW and memory ordering (including equivalent numeric addresses), output ordering, independent issue width, transpiler behavior and honest offline teammate status. Seeded generated programs are compared with an independent sequential interpreter for pipeline and parallel configurations.
 
-Frontend production bundle is compiled by Vite. Browser UI behavior has not been automatically exercised in this environment. Before presentation, perform:
+Gemini live requests require an API key and are not exercised by the offline suite.
 
-- Desktop and mobile widths: no clipped controls, stage/timing horizontal scrolling works.
-- Keyboard focus and form labels; reduced-motion preference suppresses animation.
-- Initialize valid/invalid source; error messages include lines.
-- Step once advances cycle once; Run disables competing actions.
-- Pause allows at most the current in-flight Step to finish and stops future steps.
-- Reset clears state and retains program; editor changes require Initialize.
-- Run Dependencies to completion, then review PASS.
-- Generate each arithmetic operation in Bot 1; load, initialize, run, review using Bot 2.
-- Review shows previous snapshot label after state changes.
-- Export JSON trace and compare registers, events and history with the screen.
-- Restart backend: old session returns 404; Initialize creates a new session.
-
-The independent reference validates final architectural results; targeted tests validate timing and stall behavior. Neither is a formal proof of the simulator.
+Manual browser checklist: assemble samples in both modes; toggle forwarding and issue width; play/pause/step/back/reset/seek; inspect timing, registers, memory and outputs; generate and load Bot 1 code; review pending and complete cycles with Bot 2; stop backend and confirm visible request failure. Check desktop and mobile layouts. API tests and production compilation do not substitute for browser interaction checks.

@@ -1,7 +1,7 @@
 const STATUS_LABEL = { executing: 'Executing', done: 'Done', ready: 'Ready', waiting: 'Waiting' }
 
 export function ParallelBoard({ result, snapshot }) {
-  const byId = (id) => result.instructions[id - 1]
+  const byId = (id) => ({...result.instructions[id - 1],...snapshot.details?.[id]})
   const width = result.options.issueWidth || Math.max(result.summary.peak, 1)
 
   return (

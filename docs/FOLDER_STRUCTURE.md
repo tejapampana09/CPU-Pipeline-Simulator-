@@ -1,54 +1,17 @@
-# Complete source folder structure
+# Folder structure
 
-Generated from the delivered project. node_modules and build output are excluded.
-
-```text
-coa-pipeline-simulator/
-  .gitignore
-  README.md
-  backend/.env.example
-  backend/package.json
-  backend/src/agents/assemblyAssistant.js
-  backend/src/agents/pipelineReviewer.js
-  backend/src/app.js
-  backend/src/cpu/instructionExecutor.js
-  backend/src/cpu/machine.js
-  backend/src/cpu/memory.js
-  backend/src/cpu/registerFile.js
-  backend/src/parser/assemblyParser.js
-  backend/src/parser/validator.js
-  backend/src/pipeline/hazardDetector.js
-  backend/src/pipeline/pipelineEngine.js
-  backend/src/pipeline/stallController.js
-  backend/src/routes/simulation.routes.js
-  backend/src/routes/teammate.routes.js
-  backend/src/server.js
-  backend/src/services/aiService.js
-  backend/src/services/simulationService.js
-  backend/.env
-  docs/API.md
-  docs/ARCHITECTURE.md
-  docs/PROJECT_OVERVIEW_AND_VIVA_GUIDE.md
-  docs/TEAM_DIVISION.md
-  docs/TESTING.md
-  frontend/index.html
-  frontend/package.json
-  frontend/src/App.jsx
-  frontend/src/api/simulationApi.js
-  frontend/src/components/PipelineDiagram.jsx
-  frontend/src/components/StatePanels.jsx
-  frontend/src/components/TeammatePanel.jsx
-  frontend/src/components/TimingTable.jsx
-  frontend/src/hooks/useSimulation.js
-  frontend/src/main.jsx
-  frontend/src/styles/app.css
-  frontend/vite.config.js
-  package-lock.json
-  package.json
-  shared/contracts.js
-  tests/api.test.js
-  tests/core.test.js
-  docs/FOLDER_STRUCTURE.md
-```
-
-Run npm ci to restore dependencies, npm run build to generate frontend/dist.
+- `shared/`: canonical ISA/constants, derived contracts, pure parser and validator.
+- `backend/src/parser/`: compatibility exports for the shared parser/validator.
+- `backend/src/cpu/`: machine, registers, memory and instruction execution.
+- `backend/src/pipeline/`: five-stage engine, hazard detection and stalls.
+- `backend/src/parallel/`: dependency scheduling engine with register/memory/output ordering.
+- `backend/src/services/`: sessions, trace adapter and two AI teammate services.
+- `backend/src/agents/`: template author and independent sequential verifier.
+- `backend/src/routes/`: simulation and teammate APIs.
+- `frontend/src/api/`: one API transport and session/trace orchestration.
+- `frontend/src/hooks/`: server-trace playback and session cleanup.
+- `frontend/src/components/`: editor, controls, visualization, state panels and teammates.
+- `frontend/src/sim/parser.js`: thin canonical validation adapter; no browser CPU engines.
+- `frontend/src/utils/transpiler.js`: legacy 8085/8086 conversion.
+- `tests/`: seven suites covering execution, APIs, forwarding, parallel, transpiler and architecture regressions.
+- `docs/`: API, architecture, testing and team/viva references.

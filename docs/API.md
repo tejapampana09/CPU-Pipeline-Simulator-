@@ -1,22 +1,24 @@
-# REST API
+# API
 
-Base `/api/v1`, JSON requests. Success `{success:true,data:...}`; failure `{success:false,error:{code,message,details}}`. Creation returns the state directly under data (including sessionId); unlike the original specification's nested create example, it does not return `{sessionId,state}`. This single-state envelope is used consistently by the frontend.
+All responses except DELETE use `{success:true,data:...}`; errors use `{success:false,error:{code,message,details}}`.
 
-| Method | Path | Body | data |
-|---|---|---|---|
-| GET | /health (outside prefix) | — | status, service |
-| POST | /simulations | `{source:"LI R1, 10"}` | State, 201 |
-| POST | /simulations/validate | `{source:"LI R1, 10"}` | program |
-| GET | /simulations/:id | — | State |
-| POST | /simulations/:id/step | `{}` | State after one cycle |
-| POST | /simulations/:id/run | `{maxCycles:200}` | state, runCycles, stopReason |
-| POST | /simulations/:id/reset | `{}` | Reset state with same program and ID |
-| DELETE | /simulations/:id | — | 204, no body |
-| POST | /teammates/prepare | `{operation:"ADD",a:10,b:20,address:30}` | bot, mode, source, explanation |
-| POST | /teammates/review | `{sessionId:"..."}` | verdict, expected, mismatches, summary, hazards, policy |
+| Method | Path | Payload / result |
+|---|---|---|
+| GET | `/health` | Service health |
+| POST | `/api/v1/simulations/validate` | `{source}` → canonical program |
+| POST | `/api/v1/simulations` | `{source,mode:'pipeline'|'parallel',forwarding:boolean,issueWidth:0..200}` → session |
+| GET | `/api/v1/simulations/:id` | Current mutable session state |
+| GET | `/api/v1/simulations/:id/trace` | Full authoritative trace from cycle zero, including measured forwarding comparison; does not advance mutable session |
+| POST | `/api/v1/simulations/:id/step` | Advance one cycle |
+| POST | `/api/v1/simulations/:id/run` | `{maxCycles:1..5000}` (default 200) → state, runCycles, stopReason |
+| POST | `/api/v1/simulations/:id/reset` | Optional `{forwarding}`; retains mode and issue width |
+| DELETE | `/api/v1/simulations/:id` | Delete, HTTP 204 |
+| GET | `/api/v1/teammates/status` | Gemini configured flag and configured model name |
+| POST | `/api/v1/teammates/ai-generate` | `{prompt}` → validated source, provider, model, mode, isConfigured, fallback notice |
+| POST | `/api/v1/teammates/prepare` | Deterministic template parameters |
+| POST | `/api/v1/teammates/ai-explain` | `{sessionId,cycle?}` → analysis of server-owned state at selected cycle |
+| POST | `/api/v1/teammates/review` | `{sessionId,cycle?}` → independent verification |
 
-State contains sessionId, updatedAt, program, cycle, pc, status, registers, memory, pipeline, history, events, statistics. Status is ready, paused or completed; running is frontend playback state. Each history entry has cycle, stage-to-instruction-ID mapping and stalled. Each RAW event names producerId, consumerId, register, stage, cycle and reason. IDs are zero-based; the UI displays one-based labels.
+Bot aliases `/bot1/generate`, `/bot1/prepare`, `/bot2/explain`, `/bot2/review` remain available. Client-supplied sessionState is not trusted. Omitted cycle reviews the mutable session; UI always supplies the selected trace cycle. Verification stays pending until completion.
 
-Completed Step returns unchanged state. Run defaults to 200 cycles, accepts integers 1–5000, stops at completion/budget; the whole session is capped at 5000. Reset clears memory, registers, events, history and statistics. Frontend Run calls Step serially; Pause cancels future scheduled steps, so no backend pause endpoint is needed.
-
-Errors: 400 validation/parse/JSON errors; 404 session or route missing; 409 cycle limit; 413 oversized body; 503 session capacity. Parser errors include source line details. Server errors do not expose stacks. Sessions are in-memory, maximum 100, lazily expired two hours after their last mutation. API and UI use the same origin or Vite's development proxy, so permissive CORS is unnecessary.
+Use same-origin `/api/v1` in production and the Vite proxy in development. Optional `VITE_API_URL` applies to every API request; a separately hosted API requires an appropriate deployment proxy/CORS configuration. No silent local engine fallback exists.

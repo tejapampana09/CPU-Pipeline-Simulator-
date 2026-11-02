@@ -55,7 +55,7 @@ Each member has an isolated module and a clear narrative for faculty questions a
    * **Viva Talking Point:** *"My component visualizes concurrency. It clearly renders overlapping instructions across clock cycles and visually flags stalls in orange."*
 
 7. **Member 7 — Integration, Test Automation & AI Teammates (`backend/src/app.js`, `aiService.js`, `tests/*`)**
-   * **Role:** End-to-end integration, 16 automated regression tests, differential testing against a sequential interpreter, and the Google Gemini AI Bot Teammates.
+   * **Role:** End-to-end integration, 38 automated regression tests, differential testing against a sequential interpreter, and the Google Gemini AI Bot Teammates.
    * **Viva Talking Point:** *"I integrated all sub-modules, authored 16 automated tests including a 100-program random differential verification, and built the dual-mode AI Assistant."*
 
 ---
@@ -81,3 +81,7 @@ Each member has an isolated module and a clear narrative for faculty questions a
 6. **Step 6: Demonstrate the AI Teammates**
    * Click **AI Assembly Architect** → select *"RAW Hazard Demo"* → click **Generate with AI** → **Use in editor**.
    * Run the simulation and click **Explain & Optimize with AI** to display the automated COA breakdown!
+
+## Architecture update
+
+Both pipeline and parallel execution are backend authoritative. The shared parser and canonical ISA support MUL and OUT, 8 writable signed registers and 1024 zero-initialized memory words. Parallel mode is a dependency scheduler with register, memory and output ordering, not a cycle-accurate superscalar processor. The UI plays backend snapshots. Both teammates remain; fallback status is explicit and forwarding speedup uses measured simulator runs. See ARCHITECTURE.md and TESTING.md for current behavior.

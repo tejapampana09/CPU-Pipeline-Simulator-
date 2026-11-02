@@ -1,11 +1,11 @@
 // Shared ISA rules — the single source of truth for the backend parser and the frontend.
 
 export const REGISTER_COUNT = 8
-export const MEMORY_SIZE = 4096
+export const MEMORY_SIZE = 1024
 
 export const ISA = {
   LI:    { format: ['reg', 'imm'],        syntax: 'LI Rd, imm',       semantics: 'Rd ← imm',        summary: 'Load immediate 32-bit constant into register' },
-  LOAD:  { format: ['reg', 'imm'],        syntax: 'LOAD Rd, addr',    semantics: 'Rd ← MEM[addr]',  summary: 'Load word from memory address into register' },
+  LOAD:  { format: ['reg', 'addr'],        syntax: 'LOAD Rd, addr',    semantics: 'Rd ← MEM[addr]',  summary: 'Load word from memory address into register' },
   STORE: { format: ['reg', 'addr'],       syntax: 'STORE Rs, addr',   semantics: 'MEM[addr] ← Rs',  summary: 'Write register value to memory address' },
   ADD:   { format: ['reg', 'reg', 'reg'], syntax: 'ADD Rd, Rs, Rt',   semantics: 'Rd ← Rs + Rt',    summary: 'Add two registers' },
   SUB:   { format: ['reg', 'reg', 'reg'], syntax: 'SUB Rd, Rs, Rt',   semantics: 'Rd ← Rs − Rt',    summary: 'Subtract Rt from Rs' },

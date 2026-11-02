@@ -49,7 +49,7 @@ function CleanMarkdown({ content }) {
 }
 
 export default function TeammatePanel({ state, onLoad, disabled }) {
-  const [aiConfig, setAiConfig] = useState({ configured: true, model: 'gemini-3.5-flash-lite' })
+  const [aiConfig, setAiConfig] = useState({ configured: false, model: null })
   const [autoReviewSession, setAutoReviewSession] = useState(null)
 
   // Bot 1 states (Pure Gemini AI)
@@ -69,7 +69,7 @@ export default function TeammatePanel({ state, onLoad, disabled }) {
   useEffect(() => {
     api('teammates/status')
       .then((res) => {
-        if (res && res.configured) {
+        if (res) {
           setAiConfig(res)
         }
       })
@@ -88,10 +88,10 @@ export default function TeammatePanel({ state, onLoad, disabled }) {
   // AUTOMATIC REVIEW for Bot 2: Runs as soon as simulation completes
   useEffect(() => {
     const isCompleted = state?.status === 'completed'
-    const sessionKey = `${state?.sessionId || 'local'}-${state?.cycle}`
+    const sessionKey = `${state?.sessionId}-${state?.cycle}`
     if (isCompleted && autoReviewSession !== sessionKey && !busy && state) {
       setAutoReviewSession(sessionKey)
-      handleAiExplain(state?.sessionId || 'local')
+      handleAiExplain(state?.sessionId)
     }
   }, [state?.status, state?.cycle, state?.sessionId, autoReviewSession, busy, state])
 
@@ -117,13 +117,13 @@ export default function TeammatePanel({ state, onLoad, disabled }) {
 
   // Bot 2: AI Pipeline Explainer & Optimizer
   async function handleAiExplain(explicitSessionId) {
-    const sid = explicitSessionId || state?.sessionId || 'local'
+    const sid = explicitSessionId || state?.sessionId
     setBusy(true)
     setError('')
     try {
       const data = await api('teammates/ai-explain', {
         sessionId: sid,
-        sessionState: state
+        cycle: state?.cycle
       })
       setAiExplanation({ ...data, sessionId: sid, cycle: state?.cycle })
     } catch (e) {
@@ -146,14 +146,14 @@ export default function TeammatePanel({ state, onLoad, disabled }) {
       <div className="teammates-topbar">
         <div className="teammates-desc">
           <span className="teammates-title">Virtual AI Teammates</span>
-          <span className="teammates-sub">Google Gemini 3.5 Flash Lite · AI Program Authoring & Microarchitecture Verification</span>
+          <span className="teammates-sub">Program Authoring & Independent Verification</span>
         </div>
         <div className="teammates-status-badges">
           <span className="status-pill active-auto">
             <span className="pulse-dot" /> Auto-Review Active
           </span>
           <span className="status-pill model-active">
-            ✨ Gemini 3.5 Flash Lite
+            {aiConfig.configured ? `Gemini configured · ${aiConfig.model}` : 'Offline fallback active'}
           </span>
         </div>
       </div>
@@ -177,7 +177,7 @@ export default function TeammatePanel({ state, onLoad, disabled }) {
               </div>
             </div>
 
-            <span className="bot-ai-badge">✨ Gemini AI</span>
+            <span className="bot-ai-badge">{aiProposal?.provider === 'gemini' ? `Gemini · ${aiProposal.model}` : 'Assembly assistant'}</span>
           </div>
 
           <div className="bot-card-body">
@@ -224,7 +224,7 @@ export default function TeammatePanel({ state, onLoad, disabled }) {
                 >
                   {busy ? (
                     <>
-                      <span className="spinner-mini" /> Consulting Gemini AI...
+                      <span className="spinner-mini" /> Generating assembly...
                     </>
                   ) : (
                     <>
@@ -247,6 +247,7 @@ export default function TeammatePanel({ state, onLoad, disabled }) {
                       Load into Editor ↗
                     </button>
                   </div>
+                  <CleanMarkdown content={aiProposal.notice || (aiProposal.provider === 'gemini' ? `Gemini · ${aiProposal.model}` : 'Offline fallback active')} />
                   <pre className="output-code-pre">{aiProposal.source}</pre>
                   {aiProposal.explanation && (
                     <div className="output-explanation">
@@ -277,7 +278,7 @@ export default function TeammatePanel({ state, onLoad, disabled }) {
               </div>
             </div>
 
-            <span className="bot-ai-badge coach">✨ Gemini Coach</span>
+            <span className="bot-ai-badge coach">{aiExplanation?.provider === 'gemini' ? `Gemini · ${aiExplanation.model}` : 'Independent reviewer'}</span>
           </div>
 
           <div className="bot-card-body">
@@ -305,6 +306,7 @@ export default function TeammatePanel({ state, onLoad, disabled }) {
 
               {aiExplanation && (
                 <div className="ai-coach-wrap">
+                  <CleanMarkdown content={aiExplanation.notice || (aiExplanation.provider === 'gemini' ? `Gemini · ${aiExplanation.model}` : 'Offline fallback active')} />
                   {/* Summary Header Card */}
                   <div className="ai-summary-card">
                     <div className="ai-summary-header">
@@ -365,7 +367,7 @@ export default function TeammatePanel({ state, onLoad, disabled }) {
                                 h.explanation?.match(/R[0-7]/i)?.[0]?.toUpperCase()
                           const cycles =
                             typeof h === 'string' ? 'Stall Cycles' : h.cycles || 'Stall Cycles'
-                          const stalls = typeof h === 'string' ? 2 : h.stalls || 2
+                          const stalls = typeof h === 'string' ? 2 : h.stalls ?? 0
                           const desc = typeof h === 'string' ? h : h.explanation || ''
 
                           return (
@@ -491,7 +493,7 @@ export default function TeammatePanel({ state, onLoad, disabled }) {
                         <span className="forwarding-pill">
                           {(typeof aiExplanation.forwarding === 'object' &&
                             aiExplanation.forwarding.speedup) ||
-                            '~1.55× Speedup'}
+                            'Not measured'}
                         </span>
                       </div>
                       <div className="forwarding-summary">

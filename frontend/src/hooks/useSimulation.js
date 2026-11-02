@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { SAMPLE_PROGRAMS } from '@shared/constants.js'
 import { parseProgram } from '../sim/parser.js'
+import {api} from '../api/simulationApi.js'
 import { runSimulation } from '../api/client.js'
 
 export const SPEEDS = [
@@ -19,7 +20,9 @@ export function useSimulation() {
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState(SPEEDS[1].ms)
   const [runError, setRunError] = useState(null)
+  const sessionId = useRef(null)
   const requestId = useRef(0)
+  useEffect(() => () => { requestId.current++; if(sessionId.current) api(`simulations/${sessionId.current}`,undefined,'DELETE').catch(()=>{}) }, [])
   const assembledRef = useRef(null)
   assembledRef.current = assembled
 
@@ -30,7 +33,10 @@ export function useSimulation() {
     const id = ++requestId.current
     try {
       const res = await runSimulation(src, opts)
-      if (id !== requestId.current) return
+      if (id !== requestId.current) { await api(`simulations/${res.sessionId}`,undefined,'DELETE').catch(()=>{}); return }
+      const oldSession=sessionId.current
+      sessionId.current=res.sessionId
+      if(oldSession) api(`simulations/${oldSession}`,undefined,'DELETE').catch(()=>{})
       if (res.errors?.length) {
         setRunError(res.errors[0].message)
         return
@@ -52,9 +58,11 @@ export function useSimulation() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [options, simulate])
 
-  const assemble = useCallback(() => {
-    if (errors.length) return
-    simulate(source, options, false)
+  const assemble = useCallback((newSource) => {
+    if (typeof newSource !== 'string' && errors.length) return
+    const src=typeof newSource === 'string'?newSource:source
+    setSource(src)
+    simulate(src, options, false)
   }, [errors, source, options, simulate])
 
   const loadSample = useCallback((sample) => {
