@@ -1,7 +1,7 @@
 // Local mirror of the pipeline + hazard units (Members 3 & 4).
 // Classic in-order 5-stage pipeline, register file written in the first half of
 // a cycle and read in the second, hazards resolved by stalling in ID.
-import { STAGES } from '@shared/constants.js'
+import { STAGES } from '../../../shared/constants.js'
 import { zeroRegisters } from './parser.js'
 
 const MAX_CYCLES = 2000

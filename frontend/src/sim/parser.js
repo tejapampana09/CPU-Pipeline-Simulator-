@@ -1,5 +1,5 @@
 // Local mirror of the backend parser (Member 1) so the UI runs standalone.
-import { ISA, REGISTER_COUNT, MEMORY_SIZE } from '@shared/constants.js'
+import { ISA, REGISTER_COUNT, MEMORY_SIZE } from '../../../shared/constants.js'
 
 export const REG_RE = /^R(\d+)$/i
 const NUM_RE = /^[-+]?(0x[0-9a-f]+|\d+)$/i
