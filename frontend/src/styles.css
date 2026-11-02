@@ -839,6 +839,24 @@ button:disabled { opacity: 0.35; cursor: not-allowed; }
   margin-top: 1px;
 }
 
+.bot-ai-badge {
+  font: 700 10.5px var(--mono);
+  padding: 3px 9px;
+  border-radius: 12px;
+  background: rgba(198, 244, 50, 0.12);
+  color: var(--accent);
+  border: 1px solid rgba(198, 244, 50, 0.35);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bot-ai-badge.coach {
+  background: rgba(167, 139, 250, 0.12);
+  color: var(--id);
+  border-color: rgba(167, 139, 250, 0.35);
+}
+
 .bot-card-body {
   padding: 12px 14px;
   display: flex;
