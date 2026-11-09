@@ -8,10 +8,11 @@
 - `backend/src/services/`: sessions, trace adapter and two AI teammate services.
 - `backend/src/agents/`: template author and independent sequential verifier.
 - `backend/src/routes/`: simulation and teammate APIs.
-- `frontend/src/api/`: one API transport and session/trace orchestration.
-- `frontend/src/hooks/`: server-trace playback and session cleanup.
+- `frontend/src/api/`: API transport, session/trace orchestration and bounded review cache.
+- `frontend/src/hooks/`: server-trace playback, session cleanup and current-cycle review state.
 - `frontend/src/components/`: editor, controls, visualization, state panels and teammates.
 - `frontend/src/sim/parser.js`: thin canonical validation adapter; no browser CPU engines.
-- `frontend/src/utils/transpiler.js`: legacy 8085/8086 conversion.
-- `tests/`: seven suites covering execution, APIs, forwarding, parallel, transpiler and architecture regressions.
+- `frontend/src/utils/transpiler.js`: validated legacy syntax subset (not an 8085/8086 emulator).
+- `tests/`: nine test files covering execution, APIs, forwarding, parallel, transpiler and architecture regressions.
 - `docs/`: API, architecture, testing and team/viva references.
+

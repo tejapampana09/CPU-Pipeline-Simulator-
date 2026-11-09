@@ -1,6 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {transpileToRisc, detectLegacySyntax, mapRegister} from '../frontend/src/utils/transpiler.js';
+import {parse} from '../shared/parser.js';
+import {executeTrace} from '../backend/src/services/traceService.js';
+
+test('Transpiler: refuses byte-register aliasing and preserves source on rejection', () => {
+  const source='MOV AL, 1\nMOV AH, 2\nMOV BX, AX';
+  assert.throws(()=>transpileToRisc(source),/Line 1: byte-register/);
+  for(const reg of ['AL','AH','BL','BH','CL','CH','DL','DH']) assert.throws(()=>mapRegister(reg),/unsupported/);
+});
+
+test('Transpiler: only accepts a final halt, and validates the complete converted program', () => {
+  assert.throws(()=>transpileToRisc('LI R1, 1\nHLT\nLI R1, 2'),/Instructions after a halt/);
+  assert.throws(()=>transpileToRisc('MOV AX, 1\nHALT AX'),/without operands/);
+  assert.throws(()=>transpileToRisc('MOV AX, 1\nJMP 0'),/Line 2: unsupported conversion/);
+  const converted=transpileToRisc('MOV AX, 7 ; first # second\nHLT\n# end');
+  assert.equal(executeTrace(parse(converted)).at(-1).registers.R1,7);
+});
 
 test('Transpiler: translates 8086 MOV and 8085 MVI immediate values to LI', () => {
   const code8086 = 'MOV AX, 15\nMOV BX, 25';
@@ -57,3 +73,4 @@ test('Transpiler: maps standard 8086 registers correctly to R0-R7', () => {
   assert.equal(mapRegister('BP'), 'R7');
   assert.equal(mapRegister('SP'), 'R0');
 });
+

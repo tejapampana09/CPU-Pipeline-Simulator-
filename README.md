@@ -1,6 +1,6 @@
 # Pipeline Lab — CPU Pipeline Simulator
 
-Complete React + Vite frontend and Node.js + Express backend for a seven-member COA project, with two integrated rule-based bot teammates. The backend is authoritative; the UI renders returned snapshots.
+Complete React + Vite frontend and Node.js + Express backend for a seven-member COA project, with two optional AI bot teammates. The backend is authoritative; the UI renders returned snapshots.
 
 ## Quick start (Windows, macOS or Linux)
 
@@ -30,41 +30,47 @@ npm test
 
 ## Included features
 
-- Validated assembly editor, three examples, line-level errors.
+- Shared validated assembly editor with five example programs and line-level errors.
 - Eight writable signed 32-bit registers (R0–R7), 1024 word-addressed memory locations, PC in bytes.
-- LI, ADD, SUB, AND, OR, LOAD, STORE; immediate values from -2147483648 to 2147483647.
-- Deterministic five-stage pipeline, no forwarding, RAW interlocks, EX bubbles.
-- Initialize, Step, Run, Pause, Reset; selectable playback delay and no overlapping Step requests.
-- Animated stage cards, last-30-cycle timing table, hazard log, register and memory panels.
-- Completed instruction count, cycle count, stall cycles, provisional CPI, IPC in exported state.
-- JSON trace export with full history and all events.
-- Assembly Assistant generates validated arithmetic/logic programs from structured inputs.
-- Pipeline Reviewer independently executes the program sequentially and checks all final register/memory values.
-- In-memory isolated sessions, bounded execution, structured API errors, session capacity and TTL.
-- 15 automated tests, including a seeded 100-program differential test.
+- LI, LOAD, STORE, ADD, SUB, MUL, AND, OR and OUT.
+- Five-stage pipeline with RAW stalls, forwarding ON/OFF and one-cycle load-use bubbles.
+- Parallel dependency scheduling with selectable issue width; register, memory and output ordering are preserved.
+- Step forward/back, run/pause, reset playback, seek and speed selection over backend-generated traces.
+- Animated stage cards, timing grid, event log, registers, memory and output panels.
+- Cycle count, retired instructions, stalls, CPI, IPC and speedup with an explicit comparison baseline.
+- Two optional AI teammates: validated assembly generation and independent result verification with explanations.
+- Limited legacy syntax conversion with validation; unsafe byte-register and mid-program halt conversions are rejected.
+- Isolated in-memory sessions, execution limits, structured API errors, capacity and expiry.
+- Automated regression and seeded differential tests against an independent sequential interpreter.
 
 ## Two bot teammates
 
-The two bots are **deterministic, rule-based software agents**, not LLM-powered conversational AI. This is explicitly labelled in the UI. They work end-to-end without keys, external inference, quota consumption or fabricated explanations. The Assistant proposes code; the user loads and initializes it; the backend runs it; the Reviewer compares actual results with an independent interpreter. Review output is marked as a previous snapshot if the simulation changes.
+Open **AI Teammates** to use the Assembly Architect and Pipeline Reviewer. With a configured Gemini key, Bot 1 generates assembly and Bot 2 explains verified simulation facts. Without a key or after a provider failure, the UI explicitly identifies limited offline templates/analysis. The simulator and final-state verifier remain deterministic; AI never decides CPU results. Keep credentials in the backend environment, never in browser/Vite variables.
 
-If your faculty specifically requires generative AI, an additional backend provider adapter and credentials are needed. Preserve this deterministic execution and verification layer when adding one. Never let model output decide CPU results. Never place provider keys in Vite variables or browser code.
+**Auto-review on completion is off by default.** Enable it or click **Review Current Cycle**. Successful and in-flight reviews are cached by session and cycle in the browser, including across replay and panel reopen. The cache holds up to 100 entries for up to two hours and resets on page reload. New simulation settings create a new session. Failed requests can be retried; only a successful response displays the reviewed badge, and an old cycle's response is never displayed as the current review.
 
-## Pipeline convention (read before presenting)
+## Pipeline timing
 
-A snapshot shows stage occupancy **after** a transition. Cycle 1 places the first instruction in IF. The instruction moves to ID at cycle 2, EX at 3, MEM at 4, WB at 5, and commits when it leaves WB at cycle 6. Completion includes draining all stages. Thus an independent N-instruction program takes **N+5 displayed transitions** in this implementation. Textbooks counting WB completion in its occupancy cycle commonly use N+4; these are different counting conventions, not directly comparable cycle numbers.
+A snapshot shows the stages occupied during that numbered cycle and the state after their work. A single instruction occupies IF at cycle 1, ID at 2, EX at 3, MEM at 4 and WB at 5. Its register write or OUT output commits in cycle 5; no empty drain cycle is counted. An independent N-instruction stream takes **N+4 cycles**, and a stalled stream takes **N+4+stall cycles**. The final WB card remains visible as the last cycle's work; the session is complete and cannot retire it twice.
 
-WB commits before ID reads during a transition. Producers currently in EX or MEM block dependent ID instructions; IF and PC freeze, and EX receives a bubble. A producer currently in WB does not block ID. Count one stall per stalled cycle, even when two source registers create two hazard events. Memory reads/writes occur when the old MEM token exits. Uninitialized memory reads zero. R0 is writable. Arithmetic wraps to signed 32 bits. Forwarding can be enabled, retaining one load-use stall. Parallel mode offers dependency-scheduled single-cycle issue with bounded or unbounded width; it is not a cycle-accurate superscalar processor. There are no branches, caches or processor exceptions.
+ALU results are calculated in EX, memory accesses happen in MEM, and retirement occurs in WB. Without forwarding, a dependent instruction waits in ID until the producer's WB cycle completes before entering EX. With forwarding, ALU results bypass through EX/MEM or MEM/WB; an immediately dependent LOAD consumer still stalls once. Count one stall per stalled cycle even when multiple dependency events are recorded.
+
+Pipeline speedup compares against the same program taking five cycles per instruction without overlap: `5N / pipelineCycles`. Bot 2 separately reports measured forwarding speedup as `cyclesWithoutForwarding / cyclesWithForwarding`. Parallel mode compares against one instruction per cycle and is a dependency scheduling teaching model, not a cycle-accurate superscalar CPU.
+
+## Legacy syntax limits
+
+The converter accepts a limited set of MOV/MVI, STA/LDA, numeric memory brackets, register aliases and two-operand arithmetic forms. The output uses this simulator's **32-bit teaching ISA**, not 8085/8086 flags or 8-/16-bit arithmetic. AL/AH-style byte halves are rejected. HLT/HALT is accepted only without operands at the end of a nonempty program, where automatic pipeline draining is equivalent for this model. Unsupported converted instructions fail validation without replacing the editor source. Branches, labels, stack operations and interrupts are not emulated.
 
 ## Demo
 
-1. Choose Dependencies and click Initialize program.
-2. Click Step four times; point out IF/ID holds and the EX bubble.
-3. Click Run, then Pause; resume until completed.
-4. Expected: R1=10, R2=20, R3=30, R4=20, R5=20, memory[30]=20.
-5. Open Hazard log and explain producer/consumer/register fields.
-6. Click Review current run: expected verdict PASS.
-7. Generate another program with Assembly Assistant, Use in editor, then Initialize.
-8. Reset to show architectural state clearing; export the trace.
+1. Load **RAW hazard chain** from Examples; samples assemble automatically.
+2. Step until the first stall. Point out held IF/ID and the EX bubble.
+3. Run to completion: R1=10, R2=20, R3=30, R4=20, R5=20 and memory[30]=20.
+4. Toggle forwarding and compare cycle/stall counts and bypass links.
+5. Open AI Teammates and click **Review Current Cycle** at completion for PASS.
+6. Generate a program, inspect its provider/fallback notice, then **Load into Editor**.
+7. Switch to **Parallel Issue**, choose an issue width and inspect the dependency scheduling model.
+8. Reset/seek to replay the existing trace; reset playback shows the initial zero state.
 
 ## Project references
 
@@ -76,8 +82,9 @@ WB commits before ID reads during a transition. Producers currently in EX or MEM
 
 ## Limitations
 
-Sessions expire after two hours without mutation and disappear on backend restart. Maximum 100 sessions, 200 instructions, 5000 cycles per session, 40 KB JSON request body. This is a local educational app without accounts or public multi-user security. Pause stops scheduling new steps; an already in-flight Step may finish once. Browser layout/interaction needs the manual checklist in `docs/TESTING.md`; the delivered automated checks cover the engine, API, agents, and frontend compilation.
+Sessions expire after two hours without mutation and disappear on backend restart. Maximum 100 sessions, 200 instructions, 5000 cycles per session, 40 KB JSON request body. This is a local educational app without accounts or public multi-user security. Pause stops local trace playback. Reset playback returns to cycle zero; it does not mutate the backend session. Browser layout/interaction needs the manual checklist in `docs/TESTING.md`; the delivered automated checks cover the engine, API, agents, and frontend compilation.
 
 ## Authoritative simulation
 
 Both execution modes run in the backend. The browser validates through the shared parser and renders server traces. Supported instructions: LI, LOAD, STORE, ADD, SUB, MUL, AND, OR, OUT. Memory contains 1024 zero-initialized words. See docs/ARCHITECTURE.md and docs/API.md for trace playback, session lifecycle and teammate status details.
+

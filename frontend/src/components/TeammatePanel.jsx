@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/simulationApi.js'
+import { usePipelineReview } from '../hooks/usePipelineReview.js'
 
 // Clean Markdown & Code-Chip Formatter (Prevents raw asterisks and backticks)
 function CleanMarkdown({ content }) {
@@ -48,18 +49,18 @@ function CleanMarkdown({ content }) {
   )
 }
 
-export default function TeammatePanel({ state, onLoad, disabled }) {
+export default function TeammatePanel({ state, onLoad, disabled, autoReview, setAutoReview }) {
   const [aiConfig, setAiConfig] = useState({ configured: false, model: null })
-  const [autoReviewSession, setAutoReviewSession] = useState(null)
 
-  // Bot 1 states (Pure Gemini AI)
+  // Bot 1: generated code or an explicitly labeled offline template.
   const [aiPrompt, setAiPrompt] = useState(
     'Write a program demonstrating a RAW hazard with LOAD and ADD, then store the result at address 25.'
   )
   const [aiProposal, setAiProposal] = useState(null)
 
-  // Bot 2 states (Pure Gemini AI Coach)
-  const [aiExplanation, setAiExplanation] = useState(null)
+  const review = usePipelineReview(state, autoReview)
+  const aiExplanation = review.data
+  const reviewing = review.status === 'loading'
 
   // General UI states
   const [busy, setBusy] = useState(false)
@@ -78,23 +79,6 @@ export default function TeammatePanel({ state, onLoad, disabled }) {
       })
   }, [])
 
-  // Reset auto-review session tracker on cycle 0 (reset/init)
-  useEffect(() => {
-    if (state?.cycle === 0) {
-      setAutoReviewSession(null)
-    }
-  }, [state?.cycle])
-
-  // AUTOMATIC REVIEW for Bot 2: Runs as soon as simulation completes
-  useEffect(() => {
-    const isCompleted = state?.status === 'completed'
-    const sessionKey = `${state?.sessionId}-${state?.cycle}`
-    if (isCompleted && autoReviewSession !== sessionKey && !busy && state) {
-      setAutoReviewSession(sessionKey)
-      handleAiExplain(state?.sessionId)
-    }
-  }, [state?.status, state?.cycle, state?.sessionId, autoReviewSession, busy, state])
-
   // Bot 1: AI Assembly Generator
   async function handleAiGenerate(promptToUse) {
     const p = promptToUse || aiPrompt
@@ -106,26 +90,8 @@ export default function TeammatePanel({ state, onLoad, disabled }) {
       if (data && data.success !== false) {
         setAiProposal(data)
       } else {
-        setError(data?.message || 'AI generation failed.')
+        setError(data?.message || 'Assembly generation failed.')
       }
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  // Bot 2: AI Pipeline Explainer & Optimizer
-  async function handleAiExplain(explicitSessionId) {
-    const sid = explicitSessionId || state?.sessionId
-    setBusy(true)
-    setError('')
-    try {
-      const data = await api('teammates/ai-explain', {
-        sessionId: sid,
-        cycle: state?.cycle
-      })
-      setAiExplanation({ ...data, sessionId: sid, cycle: state?.cycle })
     } catch (e) {
       setError(e.message)
     } finally {
@@ -149,8 +115,8 @@ export default function TeammatePanel({ state, onLoad, disabled }) {
           <span className="teammates-sub">Program Authoring & Independent Verification</span>
         </div>
         <div className="teammates-status-badges">
-          <span className="status-pill active-auto">
-            <span className="pulse-dot" /> Auto-Review Active
+          <span className="status-pill">
+            <label><input type="checkbox" checked={autoReview} onChange={(event) => setAutoReview(event.target.checked)} /> Auto-review on completion</label>
           </span>
           <span className="status-pill model-active">
             {aiConfig.configured ? `Gemini configured · ${aiConfig.model}` : 'Offline fallback active'}
@@ -262,7 +228,7 @@ export default function TeammatePanel({ state, onLoad, disabled }) {
         </article>
 
         {/* ======================================================== */}
-        {/* BOT 2: PIPELINE REVIEWER & OPTIMIZER                     */}
+        {/* BOT 2: PIPELINE REVIEWER                     */}
         {/* ======================================================== */}
         <article className="bot-card bot-2">
           <div className="bot-card-head">
@@ -274,7 +240,7 @@ export default function TeammatePanel({ state, onLoad, disabled }) {
               </div>
               <div className="bot-titles">
                 <h3>Bot 2: Pipeline Reviewer</h3>
-                <span className="bot-role-tag">Microarch Coach & Optimizer</span>
+                <span className="bot-role-tag">Pipeline Coach & Verifier</span>
               </div>
             </div>
 
@@ -286,22 +252,23 @@ export default function TeammatePanel({ state, onLoad, disabled }) {
               <div className="bot-reviewer-controls">
                 <button
                   className="btn btn-bot-cta"
-                  disabled={!state || busy || disabled}
-                  onClick={() => handleAiExplain()}
+                  disabled={!state || reviewing || disabled}
+                  onClick={review.analyze}
                 >
-                  {busy ? (
+                  {reviewing ? (
                     <>
                       <span className="spinner-mini" /> Analyzing Execution Trace...
                     </>
                   ) : (
                     <>
-                      <span>🧠 Re-Analyze Execution</span>
+                      <span>🧠 {review.status === 'error' ? 'Retry Review' : 'Review Current Cycle'}</span>
                     </>
                   )}
                 </button>
-                {state?.status === 'completed' && (
-                  <span className="auto-analyzed-badge">✓ Auto-Analyzed</span>
+                {review.status === 'success' && (
+                  <span className="auto-analyzed-badge">✓ Reviewed cycle {state.cycle}</span>
                 )}
+                {review.status === 'error' && <div role="alert" className="bot-error-banner">{review.error}</div>}
               </div>
 
               {aiExplanation && (
@@ -401,87 +368,6 @@ export default function TeammatePanel({ state, onLoad, disabled }) {
                     </div>
                   )}
 
-                  {/* Optimization Advice */}
-                  {aiExplanation.optimizationTips?.length > 0 && (
-                    <div className="ai-card-group">
-                      <div className="ai-group-header">
-                        <span className="ai-group-title">
-                          <span className="header-icon">💡</span>
-                          <span>Optimization & Scheduling Recommendations</span>
-                        </span>
-                        <span className="ai-badge-count">
-                          {aiExplanation.optimizationTips.length} Tips
-                        </span>
-                      </div>
-
-                      <div className="opt-cards-list">
-                        {aiExplanation.optimizationTips.map((tip, i) => (
-                          <div key={i} className="opt-item-card">
-                            <div className="opt-item-top">
-                              <div className="opt-tag">
-                                <span className="opt-dot">💡</span>
-                                <span className="opt-title-text">
-                                  {tip.title || `Optimization #${i + 1}`}
-                                </span>
-                              </div>
-                              {tip.benefit && (
-                                <span className="opt-benefit-pill">{tip.benefit}</span>
-                              )}
-                            </div>
-                            <div className="opt-desc">
-                              <CleanMarkdown
-                                content={tip.advice || tip.explanation || tip}
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* AI-Optimized Code Box with 1-Click Load into Editor */}
-                      {aiExplanation.optimizedCode && (
-                        <div className="opt-code-card">
-                          <div className="opt-code-header">
-                            <span className="opt-code-title">
-                              <span>⚡</span>
-                              <span>Optimized Instruction Schedule</span>
-                            </span>
-                            <span className="opt-code-badge">
-                              {(typeof aiExplanation.optimizedCode === 'object' &&
-                                aiExplanation.optimizedCode.savings) ||
-                                'Reduced Stalls'}
-                            </span>
-                          </div>
-                          {typeof aiExplanation.optimizedCode === 'object' &&
-                            aiExplanation.optimizedCode.explanation && (
-                              <div className="opt-code-desc">
-                                <CleanMarkdown
-                                  content={aiExplanation.optimizedCode.explanation}
-                                />
-                              </div>
-                            )}
-                          <pre className="opt-code-pre">
-                            {typeof aiExplanation.optimizedCode === 'string'
-                              ? aiExplanation.optimizedCode
-                              : aiExplanation.optimizedCode.source || ''}
-                          </pre>
-                          <button
-                            className="btn btn-accent btn-opt-load"
-                            disabled={disabled}
-                            onClick={() =>
-                              onLoad(
-                                typeof aiExplanation.optimizedCode === 'string'
-                                  ? aiExplanation.optimizedCode
-                                  : aiExplanation.optimizedCode.source || ''
-                              )
-                            }
-                          >
-                            Load Optimized Code into Editor ↗
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
                   {/* Data Forwarding Speedup Banner */}
                   {aiExplanation.forwarding && (
                     <div className="forwarding-banner">
@@ -523,3 +409,4 @@ export default function TeammatePanel({ state, onLoad, disabled }) {
     </div>
   )
 }
+
