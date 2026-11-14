@@ -55,7 +55,7 @@ Each member has an isolated module and a clear narrative for faculty questions a
    * **Viva Talking Point:** *"My component visualizes concurrency. It clearly renders overlapping instructions across clock cycles and visually flags stalls in orange."*
 
 7. **Member 7 — Integration, Test Automation & AI Teammates (`backend/src/app.js`, `aiService.js`, `tests/*`)**
-   * **Role:** End-to-end integration, 46 automated regression tests, differential testing against a sequential interpreter, and the Google Gemini AI Bot Teammates.
+   * **Role:** End-to-end integration, 47 automated regression tests, differential testing against a sequential interpreter, and the Google Gemini AI Bot Teammates.
    * **Viva Talking Point:** *"I integrated all sub-modules, authored automated regression tests including a 100-program random differential verification, and built the dual-mode AI Assistant."*
 
 ---
@@ -76,7 +76,7 @@ Each member has an isolated module and a clear narrative for faculty questions a
      ```
      I1: IF  ID  EX  MEM  WB
      I2:     IF  ID  EX   MEM  WB
-     I3:         IF  ID   --   --   EX  MEM  WB
+     I3:         IF  ID  ID*  ID*  EX  MEM  WB
      ```
 6. **Step 6: Demonstrate the AI Teammates**
    * Click **AI Teammates** → select *"RAW Hazards"* → inspect the generated program → **Load into Editor**.
