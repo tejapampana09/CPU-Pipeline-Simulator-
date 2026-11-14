@@ -20,14 +20,14 @@ test('Hardware forwarding: eliminates ALU-to-ALU RAW stalls completely (0 stalls
   // Without forwarding: 4 stall cycles (2 stalls per dependent instruction)
   const noFwd = runPipeline(code, false);
   assert.equal(noFwd.statistics.stalls, 4);
-  assert.equal(noFwd.cycle, 12);
+  assert.equal(noFwd.cycle, 11);
   assert.equal(noFwd.registers.R2, 20);
   assert.equal(noFwd.registers.R3, 10);
 
   // With forwarding: 0 stall cycles (ALU outputs bypass directly into EX)
   const fwd = runPipeline(code, true);
   assert.equal(fwd.statistics.stalls, 0);
-  assert.equal(fwd.cycle, 8);
+  assert.equal(fwd.cycle, 7);
   assert.equal(fwd.registers.R2, 20);
   assert.equal(fwd.registers.R3, 10);
   assert.ok(fwd.statistics.forwards >= 2);
@@ -46,12 +46,12 @@ test('Hardware forwarding: proves significant clock cycle reduction and speedup'
   const fwd = runPipeline(code, true);
 
   // Verifies cycle reduction
-  assert.equal(noFwd.cycle, 16);
-  assert.equal(fwd.cycle, 10);
+  assert.equal(noFwd.cycle, 15);
+  assert.equal(fwd.cycle, 9);
   assert.equal(noFwd.statistics.stalls, 6);
   assert.equal(fwd.statistics.stalls, 0);
 
-  // Speedup: 16 cycles / 10 cycles = 1.6x speedup
+  // Speedup: 15 cycles / 9 cycles ≈ 1.67x speedup
   const speedup = noFwd.cycle / fwd.cycle;
   assert.ok(speedup >= 1.5, `Speedup should be at least 1.5x, got ${speedup}`);
 
@@ -73,7 +73,7 @@ test('Hardware forwarding: enforces exactly 1 stall cycle on Load-Use hazard', (
   // With forwarding: stalls exactly 1 cycle (MEM to EX forwarding)
   const fwd = runPipeline(loadUseCode, true);
   assert.equal(fwd.statistics.stalls, 1);
-  assert.equal(fwd.cycle, 8); // 2 inst + 1 stall + 5 = 8 cycles
+  assert.equal(fwd.cycle, 7); // 2 inst + 1 stall + 4 = 7 cycles
 });
 
 test('Hardware forwarding: handles chaining of EX/MEM and MEM/WB bypass paths', () => {
@@ -92,3 +92,4 @@ test('Hardware forwarding: handles chaining of EX/MEM and MEM/WB bypass paths', 
   assert.equal(fwd.registers.R4, 5);
   assert.equal(review(fwd).verdict, 'pass');
 });
+

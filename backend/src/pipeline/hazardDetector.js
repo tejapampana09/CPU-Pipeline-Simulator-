@@ -1,4 +1,5 @@
-// WB commits before ID reads. Only EX/MEM producers can block ID when forwarding is off.
+// The previous WB snapshot has already committed. EX/MEM producers block
+// advancement from ID to EX when forwarding is off.
 // When hardware forwarding is enabled, only Load-Use dependencies require a 1-cycle stall.
 export function detectHazards(pipeline, forwarding = false){
  if(!pipeline.ID)return [];
@@ -13,3 +14,4 @@ export function detectHazards(pipeline, forwarding = false){
  }
  return [];
 }
+

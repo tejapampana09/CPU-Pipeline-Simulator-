@@ -55,3 +55,22 @@ test('Parallel Issue: preserves RAW, WAR, and WAW dependency order', () => {
   assert.equal(last.registers.R1, 99); // updated to 99
   assert.equal(last.registers.R3, 119); // 20 + 99 = 119
 });
+
+test('Parallel Issue: width one preserves sequential architectural results and output order', () => {
+  const source = [
+    'LI R1, 7',
+    'LI R2, 3',
+    'MUL R3, R1, R2',
+    'STORE R3, 4',
+    'LOAD R4, 4',
+    'OUT R4'
+  ].join('\n');
+  const serial = simulate(source, { mode: 'parallel', issueWidth: 1 });
+  const pipeline = simulate(source, { mode: 'pipeline', forwarding: true });
+  assert.equal(serial.summary.cycles, 6);
+  assert.ok(serial.snapshots.slice(1).every(s => s.executing.length <= 1));
+  assert.deepEqual(serial.snapshots.at(-1).registers, pipeline.snapshots.at(-1).registers);
+  assert.deepEqual(serial.snapshots.at(-1).memory, pipeline.snapshots.at(-1).memory);
+  assert.deepEqual(serial.snapshots.at(-1).output.map(x => x.value), [21]);
+  assert.deepEqual(pipeline.snapshots.at(-1).output.map(x => x.value), [21]);
+});

@@ -37,6 +37,7 @@ function useShortcuts(sim) {
 
 export default function App() {
   const [showAiBots, setShowAiBots] = useState(false)
+  const [autoReview, setAutoReview] = useState(false)
   const sim = useSimulation()
   const { result, snapshot } = sim
   useShortcuts(sim)
@@ -89,6 +90,8 @@ export default function App() {
               {showAiBots && (
                 <Panel title="Virtual AI Teammates" meta="Assembly Architect · Pipeline Reviewer">
                   <TeammatePanel
+                    autoReview={autoReview}
+                    setAutoReview={setAutoReview}
                     state={{sessionId:result.sessionId,cycle:sim.cycle,status:sim.cycle===result.summary.cycles?'completed':'paused'}}
                     onLoad={(code) => {
                       sim.assemble(code)
@@ -117,3 +120,4 @@ export default function App() {
     </div>
   )
 }
+

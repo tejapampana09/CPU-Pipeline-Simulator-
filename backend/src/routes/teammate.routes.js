@@ -43,9 +43,9 @@ export function teammateRoutes(service) {
   });
 
   // ========================================================
-  // BOT 2: PIPELINE REVIEWER & OPTIMIZER ENDPOINTS
+  // BOT 2: PIPELINE REVIEWER ENDPOINTS
   // ========================================================
-  // AI-powered Pipeline Explainer and Optimizer (Bot 2)
+  // AI-powered Pipeline Explainer (Bot 2)
   r.post(['/ai-explain', '/bot2/explain'], async (req, res, next) => {
     try {
       const sessionState = service.stateAt(req.body?.sessionId,req.body?.cycle);
@@ -64,3 +64,4 @@ export function teammateRoutes(service) {
 
   return r;
 }
+

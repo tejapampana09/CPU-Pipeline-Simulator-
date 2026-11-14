@@ -21,7 +21,7 @@ export function buildTrace(session) {
  const snapshots=states.map((s,index)=>{
   const prev=states[index-1],events=s.events.slice(prev?.events.length??0);
   const hazards=events.filter(e=>e.type==='RAW').map(e=>({reg:e.register,producer:e.producerId+1,consumer:e.consumerId+1,producerStage:e.stage==='EX'?'MEM':'WB',isLoadUse:e.isLoadUse}));
-  const forwards=events.filter(e=>e.type==='FORWARD').map(e=>({reg:e.register,consumer:e.consumerId+1,from:e.producerStage==='EX/MEM'?'MEM':'WB',path:e.producerStage}));
+  const forwards=events.filter(e=>e.type==='FORWARD').map(e=>({reg:e.register,consumer:e.consumerId+1,producer:e.producerId+1,from:e.producerStage==='EX/MEM'?'MEM':'WB',path:e.producerStage}));
   const stalled=hazards.length>0;
   const stages=Object.fromEntries(Object.entries(s.pipeline).map(([stage,p])=>[stage,p?{id:p.id+1,stalled:stalled&&['IF','ID'].includes(stage)}:null]));
   if(stalled)stages.EX={bubble:true,bid:s.cycle,cause:hazards[0].consumer};
@@ -33,9 +33,9 @@ export function buildTrace(session) {
   if(s.mode!=='parallel'&&prev){
    const fetched=s.pipeline.IF;
    if(fetched&&fetched.id!==prev.pipeline.IF?.id)displayEvents.push({kind:'fetch',text:`Fetch #${fetched.id+1} ${fetched.text}`});
-   const mem=prev.pipeline.MEM;
-   if(mem&&['LOAD','STORE'].includes(mem.op))displayEvents.push({kind:'mem',text:mem.op==='STORE'?`MEM[${mem.args[1]}] ← ${mem.values[0]}`:`MEM[${mem.args[1]}] → ${s.pipeline.WB.result}`});
-   const retired=prev.pipeline.WB;
+   const mem=s.pipeline.MEM;
+   if(mem&&['LOAD','STORE'].includes(mem.op))displayEvents.push({kind:'mem',text:mem.op==='STORE'?`MEM[${mem.args[1]}] ← ${mem.values[0]}`:`MEM[${mem.args[1]}] → ${mem.result}`});
+   const retired=s.pipeline.WB;
    if(retired)displayEvents.push({kind:retired.op==='OUT'?'out':retired.dst?'wb':'retire',text:retired.op==='OUT'?`OUT ${retired.result}`:retired.dst?`${retired.dst} ← ${s.registers[retired.dst]} (#${retired.id+1} retired)`:`#${retired.id+1} retired`});
   }
   if(s.status==='completed')displayEvents.push({kind:'done',text:`Completed in ${s.cycle} cycles`});
@@ -60,3 +60,4 @@ export function buildTrace(session) {
  if(session.mode!=='parallel')summary.alternate={forwarding:!session.forwarding,cycles:executeTrace(session.program,{forwarding:!session.forwarding}).at(-1).cycle};
  return {sessionId:session.sessionId,engine:'backend',mode:session.mode,options:{forwarding:session.forwarding,issueWidth:session.issueWidth},instructions,snapshots,timing,summary};
 }
+

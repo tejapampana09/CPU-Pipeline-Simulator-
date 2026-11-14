@@ -21,7 +21,7 @@ function analyze(s){
    summary:`Measured by executing this program with forwarding off (${off} cycles) and on (${on} cycles).`,benefits:[]};
  }
  return {success:true,isConfigured:isBot2AiConfigured(),provider:'offline',model:null,mode:'smart-analysis',
-  bot:'Bot 2 — Pipeline Reviewer & Optimizer',verdict:verified.verdict,mismatches:verified.mismatches,
+  bot:'Bot 2 — Pipeline Reviewer',verdict:verified.verdict,mismatches:verified.mismatches,
   stats:{cycle:s.cycle,stalls:s.statistics.stalls,cpi:s.statistics.cpi?.toFixed(2)??'—',instructions:s.statistics.instructionsCompleted},
   overview:`${parallel?'Dependency scheduling model':'Five-stage pipeline; forwarding '+(s.forwarding?'on':'off')}. ${s.statistics.instructionsCompleted} instructions completed in ${s.cycle} cycles. Sequential verification: ${verified.verdict}.`,
   hazards,forwarding,optimizedCode:null,optimizationTips:[],optimizationSummary:'Reordering requires register, memory and output dependency checks. No unverified rewrite is applied.'};
@@ -37,3 +37,4 @@ export async function explainPipelineAi({sessionState,preferredModel=DEFAULT_MOD
  }catch{return {...result,notice:'Gemini request failed — offline fallback used.'};}
 }
 export const verifyPipelineSequentially=review;
+

@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState, useEffect } from 'react'
 import { ISA, SAMPLE_PROGRAMS } from '@shared/constants.js'
 import { REG_RE } from '../sim/parser.js'
 import { Icon, Panel, stageVar } from './ui.jsx'
@@ -33,6 +33,8 @@ function highlight(line) {
 
 export function AssemblyEditor({ sim, stageByLine }) {
   const { source, setSource, errors, dirty, assemble, loadSample, runError } = sim
+  const [conversionError, setConversionError] = useState('')
+  useEffect(() => setConversionError(''), [source])
   const textRef = useRef(null)
   const preRef = useRef(null)
   const gutterRef = useRef(null)
@@ -88,14 +90,20 @@ export function AssemblyEditor({ sim, stageByLine }) {
           <button
             className="btn-transpile"
             onClick={() => {
-              const converted = transpileToRisc(source)
-              setSource(converted)
+              try {
+                setSource(transpileToRisc(source))
+                setConversionError('')
+              } catch (error) {
+                setConversionError(error.message)
+              }
             }}
           >
-            Convert to RISC ➔
+            Convert supported syntax ➔
           </button>
         </div>
       )}
+      {legacyNotice && <p className="muted">Limited syntax conversion: uses 32-bit RISC arithmetic; CPU flags, byte-register halves and 8085/8086 overflow behavior are not emulated.</p>}
+      {conversionError && <div className="bot-error-banner" role="alert">{conversionError}</div>}
       <div className="editor">
         <div className="editor-gutter" ref={gutterRef} aria-hidden="true">
           {lines.map((_, i) => {
@@ -154,3 +162,4 @@ export function AssemblyEditor({ sim, stageByLine }) {
     </Panel>
   )
 }
+

@@ -1,8 +1,12 @@
 /**
- * Smart Assembly Transpiler & Compatibility Engine
+ * Limited syntax adapter for the teaching ISA (not an 8085/8086 emulator).
  * Translates legacy 8085 & 8086 instructions (MVI, MOV, STA, LDA, 2-operand ALU, [addr] memory syntax)
  * into standard 5-stage RISC pipeline assembly (LI, ADD, SUB, AND, OR, LOAD, STORE).
  */
+
+import {parse} from '../../../shared/parser.js';
+
+const BYTE_REGISTER = /^(AL|AH|BL|BH|CL|CH|DL|DH)$/i;
 
 const REG_MAP = {
   // 8085 8-bit registers
@@ -22,18 +26,13 @@ const REG_MAP = {
   SI: 'R5', // Source Index
   DI: 'R6', // Destination Index
   BP: 'R7', // Base Pointer
-  SP: 'R0', // Stack Pointer
-
-  // 8086 8-bit register halves
-  AL: 'R1', AH: 'R1',
-  BL: 'R2', BH: 'R2',
-  CL: 'R3', CH: 'R3',
-  DL: 'R4', DH: 'R4'
+  SP: 'R0', // Register alias only; stack operations are unsupported
 };
 
 export function mapRegister(reg) {
-  if (!reg) return 'R1';
+  if (!reg) throw new Error('Register is required.');
   const u = reg.trim().toUpperCase();
+  if (BYTE_REGISTER.test(u)) throw new Error(`Byte register ${u} is unsupported; AL/AH-style halves cannot be mapped safely.`);
   return REG_MAP[u] || u;
 }
 
@@ -92,8 +91,8 @@ export function detectLegacySyntax(source) {
 export function transpileToPipelineIsa(source) {
   if (!source) return '';
   const lines = source.split(/\r?\n/);
-  const converted = lines.map(line => {
-    const commentIdx = line.indexOf('#') !== -1 ? line.indexOf('#') : line.indexOf(';');
+  const converted = lines.map((line, index) => {
+    const commentIdx = line.search(/[#;]/);
     let code = (commentIdx >= 0 ? line.slice(0, commentIdx) : line).trim();
     const comment = commentIdx >= 0 ? ' #' + line.slice(commentIdx + 1).trim() : '';
     if (!code) return line;
@@ -103,9 +102,15 @@ export function transpileToPipelineIsa(source) {
     const op = match[1].toUpperCase();
     const rawArgs = match[2] ? match[2].split(',').map(s => s.trim()) : [];
 
-    // HALT / HLT -> comment out because pipeline drains naturally
+    if (rawArgs.some(arg => BYTE_REGISTER.test(arg))) {
+      throw new Error(`Line ${index + 1}: byte-register halves are unsupported. Use full register aliases such as AX, or native R0–R7.`);
+    }
+    // A final halt is redundant; a mid-program halt changes control flow.
     if (['HALT', 'HLT'].includes(op)) {
-      return `# ${op} (pipeline automatically drains when finished)${comment}`;
+      if (rawArgs.length || lines.slice(index + 1).some(rest => rest.split(/[#;]/)[0].trim())) {
+        throw new Error(`Line ${index + 1}: ${op} is supported only as a final instruction without operands. Instructions after a halt cannot be converted safely.`);
+      }
+      return `# ${op} (final halt; pipeline drains automatically)${comment}`;
     }
 
     // 8086: MOV [30], AX (STORE memory[30] = reg)
@@ -191,8 +196,16 @@ export function transpileToPipelineIsa(source) {
     return line;
   });
 
-  return converted.join('\n');
+  const result = converted.join('\n');
+  try {
+    parse(result);
+  } catch (error) {
+    const detail = error.details?.[0];
+    throw new Error(detail ? `Line ${detail.line}: unsupported conversion. ${detail.reason}` : error.message);
+  }
+  return result;
 }
 
 export const transpileToRisc = transpileToPipelineIsa;
 export const detectLegacyAssembly = detectLegacySyntax;
+
