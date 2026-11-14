@@ -64,7 +64,7 @@ test('Parallel Issue: width one preserves sequential architectural results and o
     'STORE R3, 4',
     'LOAD R4, 4',
     'OUT R4'
-  ].join('\\n');
+  ].join('\n');
   const serial = simulate(source, { mode: 'parallel', issueWidth: 1 });
   const pipeline = simulate(source, { mode: 'pipeline', forwarding: true });
   assert.equal(serial.summary.cycles, 6);
