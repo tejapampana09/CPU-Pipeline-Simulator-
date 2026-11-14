@@ -12,7 +12,7 @@ The suite registers **46 automated tests across nine files**:
 - `transpiler.test.js`: legacy conversion, unsupported byte registers, halt safety, and complete output validation.
 - `review_cache.test.js`: in-flight deduplication, session/cycle isolation, retry, expiry, and bounded cache size.
 
-GitHub Actions runs `npm ci`, `npm test`, and `npm run build) on Node.js 22 and 24 for pushes to `main` and `fix/**`, pull requests targeting `main`, and manual dispatch. The README CI badge links to the workflow history. A green workflow means the automated suite and production build passed on both Node versions; it does not replace browser/manual checks.
+GitHub Actions runs `npm ci`, `npm test`, and `npm run build on Node.js 22 and 24 for pushes to `main` and `fix/**`, pull requests targeting `main`, and manual dispatch. The README CI badge links to the workflow history. A green workflow means the automated suite and production build passed on both Node versions; it does not replace browser/manual checks.
 
 Gemini live requests require an API key and are not exercised by the offline suite.
 
