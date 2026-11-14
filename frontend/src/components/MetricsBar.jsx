@@ -27,7 +27,9 @@ export function MetricsBar({ result, snapshot }) {
   }
 
   const alt = summary.alternate
-  const saved = alt && alt.forwarding === false ? alt.cycles - summary.cycles : 0
+  const saved = alt && alt.forwarding === false ? alt.cycles - summary.cycles : (alt ? summary.cycles - alt.cycles : 0)
+  const speedupVal = summary.forwardingSpeedup ?? summary.speedup
+
   return (
     <div className="metrics">
       <Metric label="Retired" value={<>{snapshot.completed}<small>/{n}</small></>} sub={<span className="bar"><i style={{ width: `${progress * 100}%` }} /></span>} />
@@ -40,8 +42,14 @@ export function MetricsBar({ result, snapshot }) {
       <Metric label="Forwards" value={snapshot.forwardCount} sub={result.options.forwarding ? `of ${summary.forwards} total` : 'forwarding off'} tone={snapshot.forwardCount ? 'accent' : undefined} />
       <Metric
         label="Speedup"
-        value={`${summary.speedup.toFixed(2)}×`}
-        sub={alt ? (alt.forwarding ? `${alt.cycles} cycles with forwarding` : saved > 0 ? `saves ${saved} cycles vs. no fwd` : `no-fwd: ${alt.cycles} cycles`) : 'vs. unpipelined'}
+        value={`${speedupVal.toFixed(2)}×`}
+        sub={
+          alt
+            ? (result.options.forwarding
+              ? (saved > 0 ? `saves ${saved} cyc vs. no-fwd (${alt.cycles} cyc)` : `vs. no-fwd (${alt.cycles} cyc)`)
+              : (saved > 0 ? `${alt.cycles} cycles with forwarding` : 'vs. forwarding'))
+            : `vs. unpipelined (${summary.unpipelined} cyc)`
+        }
         tone="accent"
       />
     </div>

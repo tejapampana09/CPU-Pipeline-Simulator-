@@ -35,7 +35,7 @@ export function buildTrace(session) {
    if(fetched&&fetched.id!==prev.pipeline.IF?.id)displayEvents.push({kind:'fetch',text:`Fetch #${fetched.id+1} ${fetched.text}`});
    const mem=prev.pipeline.MEM;
    if(mem&&['LOAD','STORE'].includes(mem.op))displayEvents.push({kind:'mem',text:mem.op==='STORE'?`MEM[${mem.args[1]}] ← ${mem.values[0]}`:`MEM[${mem.args[1]}] → ${s.pipeline.WB.result}`});
-   const retired=prev.pipeline.WB;
+   const retired=s.pipeline.WB;
    if(retired)displayEvents.push({kind:retired.op==='OUT'?'out':retired.dst?'wb':'retire',text:retired.op==='OUT'?`OUT ${retired.result}`:retired.dst?`${retired.dst} ← ${s.registers[retired.dst]} (#${retired.id+1} retired)`:`#${retired.id+1} retired`});
   }
   if(s.status==='completed')displayEvents.push({kind:'done',text:`Completed in ${s.cycle} cycles`});
@@ -54,9 +54,19 @@ export function buildTrace(session) {
  });
  for(const p of instructions)p.deps=deps[p.id-1].map(id=>({id:id+1,kind:'dependency'}));
  const last=states.at(-1),n=instructions.length,cycles=last.cycle;
+ const unpipelined=n*5;
+ const unpipelinedSpeedup=(session.mode==='parallel'?n:unpipelined)/cycles;
+ let alternate=null, forwardingSpeedup=null;
+ if(session.mode!=='parallel'){
+  const altCycles=executeTrace(session.program,{forwarding:!session.forwarding}).at(-1).cycle;
+  alternate={forwarding:!session.forwarding,cycles:altCycles};
+  const offCycles=session.forwarding?altCycles:cycles;
+  const onCycles=session.forwarding?cycles:altCycles;
+  forwardingSpeedup=onCycles>0?offCycles/onCycles:1;
+ }
  const summary={cycles,instructions:n,stalls:last.statistics.stalls,forwards:last.statistics.forwards,
-  cpi:cycles/n,ipc:n/cycles,peak:last.statistics.peak??0,unpipelined:n*5,
-  speedup:(session.mode==='parallel'?n:n*5)/cycles};
- if(session.mode!=='parallel')summary.alternate={forwarding:!session.forwarding,cycles:executeTrace(session.program,{forwarding:!session.forwarding}).at(-1).cycle};
+  cpi:cycles/n,ipc:n/cycles,peak:last.statistics.peak??0,unpipelined,
+  speedup:session.mode==='parallel'?unpipelinedSpeedup:(forwardingSpeedup??unpipelinedSpeedup),
+  forwardingSpeedup,unpipelinedSpeedup,alternate};
  return {sessionId:session.sessionId,engine:'backend',mode:session.mode,options:{forwarding:session.forwarding,issueWidth:session.issueWidth},instructions,snapshots,timing,summary};
 }

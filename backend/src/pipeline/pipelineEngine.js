@@ -8,7 +8,6 @@ export function step(state){
  if(state.status==='completed')return state;
  if(state.cycle>=LIMITS.cycles)throw fail('Session cycle limit reached. Reset to continue.','CYCLE_LIMIT',409);
  const s=structuredClone(state),old=s.pipeline; s.cycle++;s.status='paused';
- if(old.WB){if(old.WB.dst)s.registers[old.WB.dst]=old.WB.result|0;if(old.WB.op==='OUT')s.output.push({cycle:s.cycle,id:old.WB.id+1,reg:old.WB.args[0],value:old.WB.result});s.statistics.instructionsCompleted++;}
  const forwarding=Boolean(s.forwarding);
  const hazards=detectHazards(old, forwarding);
  const next={IF:null,ID:null,EX:null,MEM:null,WB:null};
@@ -55,8 +54,13 @@ export function step(state){
    next.ID=old.IF;
    if(s.pc/4<s.program.length){next.IF={...s.program[s.pc/4]};s.pc+=4;}
  }
+ if(next.WB){
+   if(next.WB.dst)s.registers[next.WB.dst]=next.WB.result|0;
+   if(next.WB.op==='OUT')s.output.push({cycle:s.cycle,id:next.WB.id+1,reg:next.WB.args[0],value:next.WB.result});
+   s.statistics.instructionsCompleted++;
+ }
  s.pipeline=next;
- if(s.pc/4>=s.program.length&&Object.values(next).every(x=>x===null))s.status='completed';
+ if(s.pc/4>=s.program.length&&s.statistics.instructionsCompleted===s.program.length)s.status='completed';
  s.statistics.cycles=s.cycle;
  const n=s.statistics.instructionsCompleted;s.statistics.cpi=n?s.cycle/n:null;s.statistics.ipc=n/s.cycle;
  s.history.push({cycle:s.cycle,stages:Object.fromEntries(Object.entries(next).map(([k,v])=>[k,v?.id??null])),stalled:hazards.length>0});
