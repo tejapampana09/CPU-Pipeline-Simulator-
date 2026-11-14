@@ -1,5 +1,7 @@
 # Pipeline Lab — CPU Pipeline Simulator
 
+[![CI](https://github.com/tejapampana09/CPU-Pipeline-Simulator-/actions/workflows/ci.yml/badge.svg)](https://github.com/tejapampana09/CPU-Pipeline-Simulator-/actions/workflows/ci.yml)
+
 Complete React + Vite frontend and Node.js + Express backend for a seven-member COA project, with two optional AI bot teammates. The backend is authoritative; the UI renders returned snapshots.
 
 ## Quick start (Windows, macOS or Linux)
